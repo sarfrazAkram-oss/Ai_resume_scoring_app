@@ -1,8 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'analytics_screen.dart';
+import 'applications_screen.dart';
+import 'candidates_screen.dart';
+import 'interviews_screen.dart';
+import 'job_management_screen.dart';
+
 class RecruiterDashboardScreen extends StatelessWidget {
   const RecruiterDashboardScreen({super.key});
+
+  void _openScreen(BuildContext context, Widget screen) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => screen,
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,10 +74,10 @@ class RecruiterDashboardScreen extends StatelessWidget {
                           children: [
                             SizedBox(
                               width: cardWidth,
-                              child: _RecruiterFeatureCard(
+                              child: _RecruiterModuleCard(
                                 title: 'Job Management',
                                 subtitle:
-                                    'Create, edit, delete, and view jobs from one place.',
+                                    'Create jobs, edit roles, delete listings, and view job details.',
                                 icon: Icons.work_outline_rounded,
                                 accentColor: const Color(0xFF2563EB),
                                 gradient: const LinearGradient(
@@ -72,19 +88,18 @@ class RecruiterDashboardScreen extends StatelessWidget {
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
-                                details: const [
-                                  'Create Job',
-                                  'Edit Job',
-                                  'Delete Job',
-                                  'View Jobs',
-                                ],
+                                onTap: () => _openScreen(
+                                  context,
+                                  const JobManagementScreen(),
+                                ),
                               ),
                             ),
                             SizedBox(
                               width: cardWidth,
-                              child: _RecruiterFeatureCard(
+                              child: _RecruiterModuleCard(
                                 title: 'Applications',
-                                subtitle: 'View all candidate applications.',
+                                subtitle:
+                                    'Review all submitted applications and take action.',
                                 icon: Icons.assignment_turned_in_outlined,
                                 accentColor: const Color(0xFF7C3AED),
                                 gradient: const LinearGradient(
@@ -95,17 +110,18 @@ class RecruiterDashboardScreen extends StatelessWidget {
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
-                                details: const [
-                                  'View all candidate applications',
-                                ],
+                                onTap: () => _openScreen(
+                                  context,
+                                  const ApplicationsScreen(),
+                                ),
                               ),
                             ),
                             SizedBox(
                               width: cardWidth,
-                              child: _RecruiterFeatureCard(
+                              child: _RecruiterModuleCard(
                                 title: 'Candidates',
                                 subtitle:
-                                    'View ranked candidates for each job.',
+                                    'See ranked candidates for each job by score.',
                                 icon: Icons.groups_2_outlined,
                                 accentColor: const Color(0xFF167A5C),
                                 gradient: const LinearGradient(
@@ -116,16 +132,18 @@ class RecruiterDashboardScreen extends StatelessWidget {
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
-                                details: const [
-                                  'View ranked candidates for each job',
-                                ],
+                                onTap: () => _openScreen(
+                                  context,
+                                  const CandidatesScreen(),
+                                ),
                               ),
                             ),
                             SizedBox(
                               width: cardWidth,
-                              child: _RecruiterFeatureCard(
+                              child: _RecruiterModuleCard(
                                 title: 'Interviews',
-                                subtitle: 'Schedule and manage interviews.',
+                                subtitle:
+                                    'Schedule, reschedule, cancel, and track interviews.',
                                 icon: Icons.event_note_outlined,
                                 accentColor: const Color(0xFF0F766E),
                                 gradient: const LinearGradient(
@@ -136,18 +154,18 @@ class RecruiterDashboardScreen extends StatelessWidget {
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
-                                details: const [
-                                  'Schedule interviews',
-                                  'Manage interview status',
-                                ],
+                                onTap: () => _openScreen(
+                                  context,
+                                  const InterviewsScreen(),
+                                ),
                               ),
                             ),
                             SizedBox(
                               width: cardWidth,
-                              child: _RecruiterFeatureCard(
+                              child: _RecruiterModuleCard(
                                 title: 'Analytics',
                                 subtitle:
-                                    'View hiring statistics and recruitment insights.',
+                                    'View recruitment statistics and hiring insights.',
                                 icon: Icons.analytics_outlined,
                                 accentColor: const Color(0xFFEA580C),
                                 gradient: const LinearGradient(
@@ -158,10 +176,10 @@ class RecruiterDashboardScreen extends StatelessWidget {
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
-                                details: const [
-                                  'View hiring statistics',
-                                  'Review recruitment insights',
-                                ],
+                                onTap: () => _openScreen(
+                                  context,
+                                  const AnalyticsScreen(),
+                                ),
                               ),
                             ),
                           ],
@@ -256,14 +274,14 @@ class _RecruiterHeader extends StatelessWidget {
   }
 }
 
-class _RecruiterFeatureCard extends StatelessWidget {
-  const _RecruiterFeatureCard({
+class _RecruiterModuleCard extends StatelessWidget {
+  const _RecruiterModuleCard({
     required this.title,
     required this.subtitle,
     required this.icon,
     required this.accentColor,
     required this.gradient,
-    required this.details,
+    required this.onTap,
   });
 
   final String title;
@@ -271,94 +289,87 @@ class _RecruiterFeatureCard extends StatelessWidget {
   final IconData icon;
   final Color accentColor;
   final Gradient gradient;
-  final List<String> details;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: gradient,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.7)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 25,
-            spreadRadius: 1,
-            offset: const Offset(0, 10),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: gradient,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.7)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 25,
+                spreadRadius: 1,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: accentColor.withValues(alpha: 0.16),
-                  blurRadius: 16,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Icon(icon, color: accentColor, size: 34),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            title,
-            style: GoogleFonts.poppins(
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF0F172A),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: GoogleFonts.poppins(
-              fontSize: 15,
-              height: 1.5,
-              fontWeight: FontWeight.w500,
-              color: const Color(0xFF475569),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: details
-                .map(
-                  (detail) => Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: accentColor.withValues(alpha: 0.16),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
                     ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.78),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: accentColor.withValues(alpha: 0.12),
+                  ],
+                ),
+                child: Icon(icon, color: accentColor, size: 34),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.poppins(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF0F172A),
                       ),
                     ),
-                    child: Text(
-                      detail,
+                    const SizedBox(height: 8),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.poppins(
+                        fontSize: 15,
+                        height: 1.5,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF475569),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Tap to open',
                       style: GoogleFonts.poppins(
                         fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF334155),
+                        fontWeight: FontWeight.w700,
+                        color: accentColor,
                       ),
                     ),
-                  ),
-                )
-                .toList(),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
