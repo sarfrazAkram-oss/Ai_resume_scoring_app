@@ -63,9 +63,13 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   void _goToSignIn() {
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute(builder: (_) => const SignInScreen()));
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => const SignInScreen(),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
+    );
   }
 
   void _scrollToNextPage(BuildContext context) {

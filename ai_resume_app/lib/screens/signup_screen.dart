@@ -33,15 +33,23 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   void _goToHome() {
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => const HomeScreen(),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
+    );
   }
 
   void _goToSignIn() {
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute(builder: (_) => const SignInScreen()));
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => const SignInScreen(),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
+    );
   }
 
   @override
@@ -62,16 +70,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
               child: Column(
                 children: [
                   const SizedBox(height: 14),
-                  Align(
-                    alignment: Alignment.topRight,
-                    child: TextButton(
-                      onPressed: _goToHome,
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF5677A3),
-                      ),
-                      child: const Text('Skip >'),
-                    ),
-                  ),
                   const SizedBox(height: 2),
                   SizedBox(
                     height: 170,
@@ -338,24 +336,6 @@ class _LoginRobotArt extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
-          ),
-          Positioned(
-            bottom: 4,
-            child: Container(
-              width: 110,
-              height: 72,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FBFF),
-                borderRadius: BorderRadius.circular(34),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 16,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
             ),
           ),
         ],

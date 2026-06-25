@@ -1,0 +1,85 @@
+﻿[ +704 ms] Artifact Instance of 'MaterialFonts' is not required, skipping update.
+[   +3 ms] Artifact Instance of 'GradleWrapper' is not required, skipping update.
+[        ] Artifact Instance of 'AndroidGenSnapshotArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'AndroidInternalBuildArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IOSEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterWebSdk' is not required, skipping update.
+[   +4 ms] Artifact Instance of 'LegacyCanvasKitRemover' is not required, skipping update.
+[   +2 ms] Artifact Instance of 'FlutterSdk' is not required, skipping update.
+[   +2 ms] Artifact Instance of 'WindowsEngineArtifacts' is not required, skipping update.
+[   +1 ms] Artifact Instance of 'MacOSEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'LinuxEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'LinuxFuchsiaSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'MacOSFuchsiaSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterRunnerSDKArtifacts' is not required, skipping update.
+[   +1 ms] Artifact Instance of 'FlutterRunnerDebugSymbols' is not required, skipping update.
+[   +1 ms] Artifact Instance of 'IosUsbArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IosUsbArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IosUsbArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IosUsbArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IosUsbArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IosUsbArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FontSubsetArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'PubDependencies' is not required, skipping update.
+[   +4 ms] executing: [C:\Users\HP\Downloads\flutter_windows_3.35.6-stable\flutter/] git -c log.showSignature=false log HEAD -n 1 --pretty=format:%ad --date=iso
+[ +273 ms] Exit code 0 from: git -c log.showSignature=false log HEAD -n 1 --pretty=format:%ad --date=iso
+[        ] 2026-03-25 16:21:00 -0700
+[  +84 ms] Artifact Instance of 'AndroidGenSnapshotArtifacts' is not required, skipping update.
+[   +1 ms] Artifact Instance of 'AndroidInternalBuildArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IOSEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterWebSdk' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterEngineStamp' is not required, skipping update.
+[        ] Artifact Instance of 'LegacyCanvasKitRemover' is not required, skipping update.
+[  +11 ms] Artifact Instance of 'WindowsEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'MacOSEngineArtifacts' is not required, skipping update.
+[   +2 ms] Artifact Instance of 'LinuxEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'LinuxFuchsiaSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'MacOSFuchsiaSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterRunnerSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterRunnerDebugSymbols' is not required, skipping update.
+[ +824 ms] Artifact Instance of 'AndroidGenSnapshotArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'AndroidInternalBuildArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IOSEngineArtifacts' is not required, skipping update.
+[   +4 ms] Artifact Instance of 'FlutterEngineStamp' is not required, skipping update.
+[  +11 ms] Artifact Instance of 'WindowsEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'MacOSEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'LinuxEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'LinuxFuchsiaSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'MacOSFuchsiaSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterRunnerSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterRunnerDebugSymbols' is not required, skipping update.
+[ +317 ms] Skipping pub get: version match.
+[ +406 ms] Skipping generating web_plugin_registrant.dart because it is up-to-date.
+[  +99 ms] Generating C:\Users\HP\Desktop\rsume scoring\ai_resume_app\android\app\src\main\java\io\flutter\plugins\GeneratedPluginRegistrant.java
+[  +11 ms] Skipping generating GeneratedPluginRegistrant.java because it is up-to-date.
+[   +9 ms] Skipping generating generated_plugin_registrant.h because it is up-to-date.
+[  +10 ms] Skipping generating generated_plugin_registrant.cc because it is up-to-date.
+[   +6 ms] Skipping generating generated_plugins.cmake because it is up-to-date.
+[   +7 ms] Skipping generating generated_plugin_registrant.h because it is up-to-date.
+[   +5 ms] Skipping generating generated_plugin_registrant.cc because it is up-to-date.
+[   +5 ms] Skipping generating generated_plugins.cmake because it is up-to-date.
+[   +8 ms] Skipping generating GeneratedPluginRegistrant.h because it is up-to-date.
+[  +10 ms] Skipping generating GeneratedPluginRegistrant.m because it is up-to-date.
+[   +5 ms] Skipping generating GeneratedPluginRegistrant.swift because it is up-to-date.
+[ +867 ms] Launching lib\main.dart on Chrome in debug mode...
+[ +261 ms] Initializing file store
+[   +5 ms] Done initializing file store
+[  +39 ms] Skipping target: gen_localizations
+[   +9 ms] Skipping target: gen_dart_plugin_registrant
+[   +9 ms] Skipping target: _composite
+[  +12 ms] complete
+[   +4 ms] Updating assets
+[   +5 ms] runHooks() with {TargetFile: C:\Users\HP\Desktop\rsume scoring\ai_resume_app\lib\main.dart, BuildMode: debug} and TargetPlatform.web_javascript
+[        ] runHooks() - will perform dart build
+[   +3 ms] Initializing file store
+[   +1 ms] Done initializing file store
+[  +39 ms] Skipping target: dart_build
+[   +1 ms] Persisting file store
+[  +12 ms] Done persisting file store
+[  +20 ms] runHooks() - done
+[ +699 ms] Waiting for connection from debug service on Chrome...
+[ +797 ms] shaderc command: [C:\Users\HP\Downloads\flutter_windows_3.35.6-stable\flutter\bin\cache\artifacts\engine\windows-x64\impellerc.exe, --sksl, --iplr, --json, --sl=build\flutter_assets\shaders/ink_sparkle.frag, --spirv=build\flutter_assets\shaders/ink_sparkle.frag.spirv, --input=C:\Users\HP\Downloads\flutter_windows_3.35.6-stable\flutter\packages\flutter\lib\src\material\shaders\ink_sparkle.frag, --input-type=frag, --include=C:\Users\HP\Downloads\flutter_windows_3.35.6-stable\flutter\packages\flutter\lib\src\material\shaders, --include=C:\Users\HP\Downloads\flutter_windows_3.35.6-stable\flutter\bin\cache\artifacts\engine\windows-x64\shader_lib]
+[   +6 ms] shaderc command: [C:\Users\HP\Downloads\flutter_windows_3.35.6-stable\flutter\bin\cache\artifacts\engine\windows-x64\impellerc.exe, --sksl, --iplr, --json, --sl=build\flutter_assets\shaders/stretch_effect.frag, --spirv=build\flutter_assets\shaders/stretch_effect.frag.spirv, --input=C:\Users\HP\Downloads\flutter_windows_3.35.6-stable\flutter\packages\flutter\lib\src\material\shaders\stretch_effect.frag, --input-type=frag, --include=C:\Users\HP\Downloads\flutter_windows_3.35.6-stable\flutter\packages\flutter\lib\src\material\shaders, --include=C:\Users\HP\Downloads\flutter_windows_3.35.6-stable\flutter\bin\cache\artifacts\engine\windows-x64\shader_lib]
+[+1968 ms] <- reset
+[  +27 ms] C:\Users\HP\Downloads\flutter_windows_3.35.6-stable\flutter\bin\cache\dart-sdk\bin\dartaotruntime.exe C:\Users\HP\Downloads\flutter_windows_3.35.6-stable\flutter\bin\cache\dart-sdk\bin\snapshots\frontend_server_aot.dart.snapshot --sdk-root C:\Users\HP\Downloads\flutter_windows_3.35.6-stable\flutter\bin\cache\flutter_web_sdk/ --incremental --target=dartdevc --experimental-emit-debug-metadata -DFLUTTER_VERSION=3.41.6 -DFLUTTER_CHANNEL=stable -DFLUTTER_GIT_URL=https://github.com/flutter/flutter.git -DFLUTTER_FRAMEWORK_REVISION=db50e20168 -DFLUTTER_ENGINE_REVISION=425cfb54d0 -DFLUTTER_DART_VERSION=3.11.4 --output-dill C:\Users\HP\AppData\Local\Temp\flutter_tools.78708e3b\flutter_tool.ec298148\app.dill --packages C:\Users\HP\Desktop\rsume scoring\ai_resume_app\.dart_tool\package_config.json -Ddart.vm.profile=false -Ddart.vm.product=false --enable-asserts --track-widget-creation --filesystem-root C:\Users\HP\AppData\Local\Temp\flutter_tools.78708e3b\flutter_tools.9958456f --filesystem-scheme org-dartlang-app --initialize-from-dill build\b70f9274ac3b5ec9754be8774a3c9a1c.cache.dill.track.dill --platform file:///C:/Users/HP/Downloads/flutter_windows_3.35.6-stable/flutter/bin/cache/flutter_web_sdk/kernel/ddc_outline.dill --verbosity=error --dartdevc-canary --dartdevc-module-format=ddc
+[ +693 ms] <- compile org-dartlang-app:/web_entrypoint.dart

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_textfield.dart';
 import 'home_screen.dart';
+import 'recruiter_dashboard_screen.dart';
 import 'signup_screen.dart';
 
 class SignInScreen extends StatefulWidget {
@@ -25,15 +26,36 @@ class _SignInScreenState extends State<SignInScreen> {
   }
 
   void _goToHome() {
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const HomeScreen(),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
+    );
+  }
+
+  void _goToRecruiterDashboard() {
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const RecruiterDashboardScreen(),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
+    );
   }
 
   void _goToSignUp() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const SignUpScreen()));
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const SignUpScreen(),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
+    );
   }
 
   @override
@@ -54,16 +76,6 @@ class _SignInScreenState extends State<SignInScreen> {
               child: Column(
                 children: [
                   const SizedBox(height: 14),
-                  Align(
-                    alignment: Alignment.topRight,
-                    child: TextButton(
-                      onPressed: _goToHome,
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF5677A3),
-                      ),
-                      child: const Text('Skip >'),
-                    ),
-                  ),
                   const SizedBox(height: 2),
                   SizedBox(
                     height: 180,
@@ -77,8 +89,8 @@ class _SignInScreenState extends State<SignInScreen> {
                             shape: BoxShape.circle,
                             gradient: RadialGradient(
                               colors: [
-                                const Color(0xFF6CA8F0).withOpacity(0.85),
-                                const Color(0xFFCADCF3).withOpacity(0.18),
+                                const Color(0xFF6CA8F0).withValues(alpha: 0.85),
+                                const Color(0xFFCADCF3).withValues(alpha: 0.18),
                                 Colors.transparent,
                               ],
                               stops: const [0.0, 0.7, 1.0],
@@ -145,6 +157,38 @@ class _SignInScreenState extends State<SignInScreen> {
                     text: 'Log In',
                     onPressed: _goToHome,
                     height: 54,
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: CustomButton(
+                          text: 'Candidate',
+                          onPressed: _goToHome,
+                          height: 50,
+                          borderRadius: 16,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF5F8EDC), Color(0xFF3D79D0)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: CustomButton(
+                          text: 'Recruiter',
+                          onPressed: _goToRecruiterDashboard,
+                          height: 50,
+                          borderRadius: 16,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF1E9A76), Color(0xFF167A5C)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
                   Row(
@@ -220,7 +264,7 @@ class _LoginRobotArt extends StatelessWidget {
       height: 140,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.white.withOpacity(0.2),
+        color: Colors.white.withValues(alpha: 0.2),
       ),
       child: Stack(
         alignment: Alignment.center,
@@ -230,10 +274,10 @@ class _LoginRobotArt extends StatelessWidget {
             height: 124,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFFF4F8FF).withOpacity(0.98),
+              color: const Color(0xFFF4F8FF).withValues(alpha: 0.98),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
+                  color: Colors.black.withValues(alpha: 0.08),
                   blurRadius: 18,
                   offset: const Offset(0, 10),
                 ),
@@ -310,24 +354,6 @@ class _LoginRobotArt extends StatelessWidget {
               ],
             ),
           ),
-          Positioned(
-            bottom: 4,
-            child: Container(
-              width: 110,
-              height: 72,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FBFF),
-                borderRadius: BorderRadius.circular(34),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 16,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -352,7 +378,7 @@ class _SocialButton extends StatelessWidget {
         border: Border.all(color: const Color(0xFFDCE5F1)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
