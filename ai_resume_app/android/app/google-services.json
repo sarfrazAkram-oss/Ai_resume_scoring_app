@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "423510619607",
+    "project_id": "ai-resume-ranking-system",
+    "storage_bucket": "ai-resume-ranking-system.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:423510619607:android:d92c3a3c2256f8b86d4792",
+        "android_client_info": {
+          "package_name": "com.example.ai_resume_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCNEzUGbGnkXV1tnPi8VpRE6NNAKqtuPIw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

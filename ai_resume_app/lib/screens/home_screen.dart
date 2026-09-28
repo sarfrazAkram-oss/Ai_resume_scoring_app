@@ -1,8 +1,25 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'candidate_dashboard_screens.dart';
+import 'signin_screen.dart';
+
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
+
+  Future<void> _handleLogout(BuildContext context) async {
+    await FirebaseAuth.instance.signOut();
+    if (!context.mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => const SignInScreen(),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
+      (_) => false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +67,10 @@ class HomeScreen extends StatelessWidget {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _CandidateHeader(width: width),
+                        _CandidateHeader(
+                          width: width,
+                          onLogout: () => _handleLogout(context),
+                        ),
                         const SizedBox(height: 24),
                         Wrap(
                           spacing: 18,
@@ -72,6 +92,18 @@ class HomeScreen extends StatelessWidget {
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
+                                onTap: () => Navigator.of(context).push(
+                                  PageRouteBuilder(
+                                    pageBuilder:
+                                        (
+                                          context,
+                                          animation,
+                                          secondaryAnimation,
+                                        ) => const AvailableJobsScreen(),
+                                    transitionDuration: Duration.zero,
+                                    reverseTransitionDuration: Duration.zero,
+                                  ),
+                                ),
                               ),
                             ),
                             SizedBox(
@@ -89,6 +121,18 @@ class HomeScreen extends StatelessWidget {
                                   ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
+                                ),
+                                onTap: () => Navigator.of(context).push(
+                                  PageRouteBuilder(
+                                    pageBuilder:
+                                        (
+                                          context,
+                                          animation,
+                                          secondaryAnimation,
+                                        ) => const MyApplicationsScreen(),
+                                    transitionDuration: Duration.zero,
+                                    reverseTransitionDuration: Duration.zero,
+                                  ),
                                 ),
                               ),
                             ),
@@ -108,9 +152,10 @@ class HomeScreen extends StatelessWidget {
 }
 
 class _CandidateHeader extends StatelessWidget {
-  const _CandidateHeader({required this.width});
+  const _CandidateHeader({required this.width, required this.onLogout});
 
   final double width;
+  final VoidCallback onLogout;
 
   @override
   Widget build(BuildContext context) {
@@ -167,14 +212,52 @@ class _CandidateHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              Text(
-                'Temporary dashboard used for testing candidate navigation only.',
-                style: GoogleFonts.poppins(
-                  fontSize: subtitleSize,
-                  height: 1.5,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF64748B),
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Temporary dashboard used for testing candidate navigation only.',
+                      style: GoogleFonts.poppins(
+                        fontSize: subtitleSize,
+                        height: 1.5,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  GestureDetector(
+                    onTap: onLogout,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8F2FF),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(
+                            Icons.logout_rounded,
+                            size: 18,
+                            color: Color(0xFF2563EB),
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            'Logout',
+                            style: TextStyle(
+                              color: Color(0xFF2563EB),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -191,6 +274,7 @@ class _CandidateCard extends StatelessWidget {
     required this.icon,
     required this.accentColor,
     required this.gradient,
+    this.onTap,
   });
 
   final String title;
@@ -198,63 +282,71 @@ class _CandidateCard extends StatelessWidget {
   final IconData icon;
   final Color accentColor;
   final Gradient gradient;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: gradient,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.7)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 25,
-            spreadRadius: 1,
-            offset: const Offset(0, 10),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: gradient,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.7)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 25,
+                spreadRadius: 1,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: accentColor.withValues(alpha: 0.16),
-                  blurRadius: 16,
-                  offset: const Offset(0, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: accentColor.withValues(alpha: 0.16),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Icon(icon, color: accentColor, size: 34),
+                child: Icon(icon, color: accentColor, size: 34),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                title,
+                style: GoogleFonts.poppins(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                description,
+                style: GoogleFonts.poppins(
+                  fontSize: 15,
+                  height: 1.5,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF475569),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 18),
-          Text(
-            title,
-            style: GoogleFonts.poppins(
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF0F172A),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            description,
-            style: GoogleFonts.poppins(
-              fontSize: 15,
-              height: 1.5,
-              fontWeight: FontWeight.w500,
-              color: const Color(0xFF475569),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

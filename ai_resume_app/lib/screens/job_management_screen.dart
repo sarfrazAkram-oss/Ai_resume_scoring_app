@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class RecruiterLocalStore {
-  RecruiterLocalStore._();
-
-  static final ValueNotifier<int> jobCount = ValueNotifier<int>(0);
-}
+import '../services/firestore_service.dart';
+import 'local_resume_store.dart';
 
 class JobManagementScreen extends StatefulWidget {
   const JobManagementScreen({super.key});
@@ -15,56 +12,6 @@ class JobManagementScreen extends StatefulWidget {
 }
 
 class _JobManagementScreenState extends State<JobManagementScreen> {
-  late List<JobItem> _jobs;
-
-  @override
-  void initState() {
-    super.initState();
-    _jobs = [
-      const JobItem(
-        title: 'AI Engineer',
-        department: 'AI Team',
-        requiredSkills: 'Python, ML, NLP',
-        experience: '2+ Years',
-        education: 'BS in Computer Science',
-        description: 'Build and optimize AI features for the hiring platform.',
-        location: 'Remote',
-        employmentType: 'Full-time',
-        salaryRange: '80k - 110k',
-        applicants: 15,
-        status: 'Open',
-      ),
-      const JobItem(
-        title: 'Flutter Developer',
-        department: 'Product Team',
-        requiredSkills: 'Flutter, Dart, UI',
-        experience: '3+ Years',
-        education: 'BS in Software Engineering',
-        description:
-            'Develop polished mobile experiences for recruiters and candidates.',
-        location: 'Lahore',
-        employmentType: 'Full-time',
-        salaryRange: '60k - 90k',
-        applicants: 10,
-        status: 'Open',
-      ),
-      const JobItem(
-        title: 'HR Coordinator',
-        department: 'Human Resources',
-        requiredSkills: 'Communication, Scheduling, ATS',
-        experience: '1+ Years',
-        education: 'Bachelor\'s Degree',
-        description: 'Coordinate candidate flow and hiring operations.',
-        location: 'Karachi',
-        employmentType: 'Contract',
-        salaryRange: '40k - 55k',
-        applicants: 8,
-        status: 'Closed',
-      ),
-    ];
-    RecruiterLocalStore.jobCount.value = _jobs.length;
-  }
-
   Future<void> _openCreateJob() async {
     final createdJob = await Navigator.of(context).push<JobItem>(
       PageRouteBuilder(
@@ -79,10 +26,15 @@ class _JobManagementScreenState extends State<JobManagementScreen> {
       return;
     }
 
-    setState(() {
-      _jobs = [createdJob, ..._jobs];
-    });
-    RecruiterLocalStore.jobCount.value = _jobs.length;
+    try {
+      await FirestoreService.createJob(createdJob);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not create job: $error')));
+      return;
+    }
 
     if (!mounted) {
       return;
@@ -93,11 +45,11 @@ class _JobManagementScreenState extends State<JobManagementScreen> {
     ).showSnackBar(const SnackBar(content: Text('Job created successfully.')));
   }
 
-  Future<void> _editJob(int index) async {
+  Future<void> _editJob(JobItem currentJob) async {
     final updatedJob = await Navigator.of(context).push<JobItem>(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-            CreateJobScreen(initialJob: _jobs[index]),
+            CreateJobScreen(initialJob: currentJob),
         transitionDuration: Duration.zero,
         reverseTransitionDuration: Duration.zero,
       ),
@@ -107,12 +59,17 @@ class _JobManagementScreenState extends State<JobManagementScreen> {
       return;
     }
 
-    setState(() {
-      _jobs[index] = updatedJob;
-    });
+    try {
+      await FirestoreService.updateJob(updatedJob);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not update job: $error')));
+    }
   }
 
-  Future<void> _deleteJob(int index) async {
+  Future<void> _deleteJob(JobItem job) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
@@ -137,10 +94,14 @@ class _JobManagementScreenState extends State<JobManagementScreen> {
       return;
     }
 
-    setState(() {
-      _jobs.removeAt(index);
-    });
-    RecruiterLocalStore.jobCount.value = _jobs.length;
+    try {
+      await FirestoreService.deleteJob(job);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not delete job: $error')));
+    }
   }
 
   void _viewJob(JobItem job) {
@@ -164,17 +125,41 @@ class _JobManagementScreenState extends State<JobManagementScreen> {
       actionOnPressed: _openCreateJob,
       children: [
         const SizedBox(height: 24),
-        ...List.generate(
-          _jobs.length,
-          (index) => Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: JobCard(
-              job: _jobs[index],
-              onEdit: () => _editJob(index),
-              onDelete: () => _deleteJob(index),
-              onViewDetails: () => _viewJob(_jobs[index]),
-            ),
-          ),
+        StreamBuilder<List<JobItem>>(
+          stream: FirestoreService.recruiterJobs(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return InfoCard(
+                accentColor: const Color(0xFFDC2626),
+                child: Text('Could not load jobs: ${snapshot.error}'),
+              );
+            }
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final jobs = snapshot.data!;
+            if (jobs.isEmpty) {
+              return InfoCard(
+                accentColor: const Color(0xFF2563EB),
+                child: Text('No jobs created yet.', style: InfoStyles.title),
+              );
+            }
+            return Column(
+              children: jobs
+                  .map(
+                    (job) => Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: JobCard(
+                        job: job,
+                        onEdit: () => _editJob(job),
+                        onDelete: () => _deleteJob(job),
+                        onViewDetails: () => _viewJob(job),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            );
+          },
         ),
       ],
     );
@@ -244,7 +229,18 @@ class _CreateJobScreenState extends State<CreateJobScreen> {
   }
 
   void _saveJob() {
+    if (_titleController.text.trim().isEmpty ||
+        _descriptionController.text.trim().isEmpty ||
+        _locationController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please complete the required job fields.'),
+        ),
+      );
+      return;
+    }
     final job = JobItem(
+      id: widget.initialJob?.id,
       title: _titleController.text.trim(),
       department: _departmentController.text.trim(),
       requiredSkills: _skillsController.text.trim(),
@@ -359,34 +355,6 @@ class JobDetailsScreen extends StatelessWidget {
       ],
     );
   }
-}
-
-class JobItem {
-  const JobItem({
-    required this.title,
-    required this.department,
-    required this.requiredSkills,
-    required this.experience,
-    required this.education,
-    required this.description,
-    required this.location,
-    required this.employmentType,
-    required this.salaryRange,
-    required this.applicants,
-    required this.status,
-  });
-
-  final String title;
-  final String department;
-  final String requiredSkills;
-  final String experience;
-  final String education;
-  final String description;
-  final String location;
-  final String employmentType;
-  final String salaryRange;
-  final int applicants;
-  final String status;
 }
 
 class JobCard extends StatelessWidget {
@@ -777,9 +745,15 @@ class InfoStyles {
 }
 
 class PillAction extends StatelessWidget {
-  const PillAction({super.key, required this.label, this.danger = false});
+  const PillAction({
+    super.key,
+    required this.label,
+    required this.onTap,
+    this.danger = false,
+  });
 
   final String label;
+  final VoidCallback onTap;
   final bool danger;
 
   @override
@@ -787,7 +761,7 @@ class PillAction extends StatelessWidget {
     final color = danger ? const Color(0xFFDC2626) : const Color(0xFF2563EB);
     return ActionChip(
       label: Text(label),
-      onPressed: () {},
+      onPressed: onTap,
       backgroundColor: color.withValues(alpha: 0.08),
       labelStyle: TextStyle(color: color, fontWeight: FontWeight.w700),
     );

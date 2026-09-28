@@ -1,10 +1,14 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../widgets/custom_button.dart';
 import '../widgets/custom_textfield.dart';
 import 'home_screen.dart';
 import 'recruiter_dashboard_screen.dart';
 import 'signup_screen.dart';
+
+const String _authorizedHrEmail = 'meharsarfaraz206905@gmail.com';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -17,6 +21,25 @@ class _SignInScreenState extends State<SignInScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
+  bool _googleInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeGoogleSignIn();
+  }
+
+  Future<void> _initializeGoogleSignIn() async {
+    if (_googleInitialized) return;
+    try {
+      await _googleSignIn.initialize();
+      _googleInitialized = true;
+    } catch (_) {
+      _googleInitialized = true;
+    }
+  }
 
   @override
   void dispose() {
@@ -25,7 +48,74 @@ class _SignInScreenState extends State<SignInScreen> {
     super.dispose();
   }
 
-  void _goToHome() {
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _handlePasswordReset() async {
+    final emailController = TextEditingController(
+      text: _usernameController.text.trim(),
+    );
+    final email = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Reset Password'),
+          content: TextField(
+            controller: emailController,
+            keyboardType: TextInputType.emailAddress,
+            autofocus: true,
+            decoration: const InputDecoration(labelText: 'Email'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(emailController.text.trim()),
+              child: const Text('Send Reset Email'),
+            ),
+          ],
+        );
+      },
+    );
+    emailController.dispose();
+
+    if (email == null) {
+      return;
+    }
+    if (email.isEmpty) {
+      _showMessage('Please enter your registered email address.');
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      _showMessage(
+        'Password reset email has been sent. Please check your email and set a new password.',
+      );
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'invalid-email') {
+        _showMessage('Please enter a valid email address.');
+      } else if (e.code == 'user-not-found') {
+        _showMessage('No account was found for that email address.');
+      } else {
+        _showMessage(e.message ?? 'Could not send the password reset email.');
+      }
+    } catch (_) {
+      _showMessage(
+        'Could not send the password reset email. Please try again.',
+      );
+    }
+  }
+
+  Future<void> _navigateToHome() async {
+    if (!mounted) return;
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
@@ -36,7 +126,8 @@ class _SignInScreenState extends State<SignInScreen> {
     );
   }
 
-  void _goToRecruiterDashboard() {
+  Future<void> _navigateToRecruiterDashboard() async {
+    if (!mounted) return;
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
@@ -45,6 +136,114 @@ class _SignInScreenState extends State<SignInScreen> {
         reverseTransitionDuration: Duration.zero,
       ),
     );
+  }
+
+  Future<void> _handleLogin() async {
+    final email = _usernameController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      _showMessage('Please enter both email and password.');
+      return;
+    }
+
+    try {
+      final credential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      final signedInEmail = credential.user?.email?.toLowerCase();
+      if (signedInEmail == _authorizedHrEmail) {
+        await _navigateToRecruiterDashboard();
+        return;
+      }
+
+      await _navigateToHome();
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-not-found') {
+        _showMessage('No user found for that email.');
+      } else if (e.code == 'wrong-password') {
+        _showMessage('Incorrect password.');
+      } else {
+        _showMessage(e.message ?? 'Login failed. Please try again.');
+      }
+    } catch (e) {
+      _showMessage('Login failed. Please check your connection and try again.');
+    }
+  }
+
+  Future<void> _handleCandidateLogin() async {
+    final email = _usernameController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      _showMessage('Please enter both email and password.');
+      return;
+    }
+
+    try {
+      await _auth.signInWithEmailAndPassword(email: email, password: password);
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        _showMessage('Candidate login failed. Please try again.');
+        return;
+      }
+
+      debugPrint('Candidate login successful');
+      debugPrint('Candidate auth uid: ${user.uid}');
+      debugPrint('Candidate auth email: ${user.email}');
+      await _navigateToHome();
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-not-found') {
+        _showMessage('No user found for that email.');
+      } else if (e.code == 'wrong-password') {
+        _showMessage('Incorrect password.');
+      } else {
+        _showMessage(e.message ?? 'Login failed. Please try again.');
+      }
+    } catch (_) {
+      _showMessage('Login failed. Please check your connection and try again.');
+    }
+  }
+
+  Future<void> _attemptRecruiterAccess() async {
+    final user = _auth.currentUser;
+    if (user != null && user.email?.toLowerCase() == _authorizedHrEmail) {
+      await _navigateToRecruiterDashboard();
+      return;
+    }
+
+    _showMessage(
+      'Please sign in with the authorized HR email and password to access the recruiter dashboard.',
+    );
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    try {
+      final googleUser = await _googleSignIn.authenticate();
+      final googleAuth = googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        idToken: googleAuth.idToken,
+      );
+
+      final userCredential = await _auth.signInWithCredential(credential);
+      final signedInEmail = userCredential.user?.email?.toLowerCase();
+      if (signedInEmail == _authorizedHrEmail) {
+        await _auth.signOut();
+        await _googleSignIn.signOut();
+        _showMessage(
+          'Google sign-in is not authorized for HR access. Please use email and password.',
+        );
+        return;
+      }
+
+      await _navigateToHome();
+    } on FirebaseAuthException catch (e) {
+      _showMessage(e.message ?? 'Google sign-in failed.');
+    } catch (_) {
+      _showMessage('Google sign-in failed. Please try again.');
+    }
   }
 
   void _goToSignUp() {
@@ -144,7 +343,7 @@ class _SignInScreenState extends State<SignInScreen> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
-                      onPressed: () {},
+                      onPressed: _handlePasswordReset,
                       style: TextButton.styleFrom(
                         foregroundColor: const Color(0xFF5A7FA9),
                         padding: EdgeInsets.zero,
@@ -155,7 +354,7 @@ class _SignInScreenState extends State<SignInScreen> {
                   const SizedBox(height: 4),
                   CustomButton(
                     text: 'Log In',
-                    onPressed: _goToHome,
+                    onPressed: _handleLogin,
                     height: 54,
                   ),
                   const SizedBox(height: 16),
@@ -164,7 +363,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       Expanded(
                         child: CustomButton(
                           text: 'Candidate',
-                          onPressed: _goToHome,
+                          onPressed: _handleCandidateLogin,
                           height: 50,
                           borderRadius: 16,
                           gradient: const LinearGradient(
@@ -178,7 +377,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       Expanded(
                         child: CustomButton(
                           text: 'Recruiter',
-                          onPressed: _goToRecruiterDashboard,
+                          onPressed: _attemptRecruiterAccess,
                           height: 50,
                           borderRadius: 16,
                           gradient: const LinearGradient(
@@ -242,6 +441,7 @@ class _SignInScreenState extends State<SignInScreen> {
                           fontWeight: FontWeight.w800,
                           color: Color(0xFF4285F4),
                         ),
+                        onTap: _handleGoogleSignIn,
                       ),
                     ],
                   ),
@@ -361,31 +561,39 @@ class _LoginRobotArt extends StatelessWidget {
 }
 
 class _SocialButton extends StatelessWidget {
-  const _SocialButton({required this.label, required this.labelStyle});
+  const _SocialButton({
+    required this.label,
+    required this.labelStyle,
+    this.onTap,
+  });
 
   final String label;
   final TextStyle labelStyle;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 66,
-      height: 42,
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFDCE5F1)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 66,
+        height: 42,
+        margin: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFDCE5F1)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        alignment: Alignment.center,
+        child: Text(label, style: labelStyle),
       ),
-      alignment: Alignment.center,
-      child: Text(label, style: labelStyle),
     );
   }
 }

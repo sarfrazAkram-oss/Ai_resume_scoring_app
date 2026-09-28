@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../widgets/custom_button.dart';
@@ -21,6 +22,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   @override
   void dispose() {
@@ -32,7 +34,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
     super.dispose();
   }
 
-  void _goToHome() {
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _goToHome() async {
+    if (!mounted) return;
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         pageBuilder: (_, __, ___) => const HomeScreen(),
@@ -50,6 +60,42 @@ class _SignUpScreenState extends State<SignUpScreen> {
         reverseTransitionDuration: Duration.zero,
       ),
     );
+  }
+
+  Future<void> _handleSignUp() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
+
+    if (email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+      _showMessage('Please complete all required fields.');
+      return;
+    }
+
+    if (password != confirmPassword) {
+      _showMessage('Passwords do not match.');
+      return;
+    }
+
+    try {
+      await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      await _goToHome();
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'email-already-in-use') {
+        _showMessage('This email is already registered. Please log in.');
+      } else if (e.code == 'weak-password') {
+        _showMessage('Please choose a stronger password.');
+      } else {
+        _showMessage(e.message ?? 'Sign up failed. Please try again.');
+      }
+    } catch (_) {
+      _showMessage(
+        'Sign up failed. Please check your connection and try again.',
+      );
+    }
   }
 
   @override
@@ -171,7 +217,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   const SizedBox(height: 18),
                   CustomButton(
                     text: 'Sign Up',
-                    onPressed: _goToHome,
+                    onPressed: _handleSignUp,
                     height: 54,
                   ),
                   const SizedBox(height: 16),

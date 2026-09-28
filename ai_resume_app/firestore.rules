@@ -1,0 +1,40 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function jobExists(jobId) {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/jobs/$(jobId));
+    }
+
+    match /jobs/{jobId} {
+      allow read: if signedIn() &&
+        (resource.data.status == 'active' ||
+          resource.data.createdBy == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid;
+      allow update: if signedIn() &&
+        resource.data.createdBy == request.auth.uid &&
+        request.resource.data.createdBy == resource.data.createdBy;
+      allow delete: if signedIn() && resource.data.createdBy == request.auth.uid;
+    }
+
+    match /applications/{applicationId} {
+      allow create: if signedIn()
+        && request.resource.data.candidateId == request.auth.uid
+        && jobExists(request.resource.data.jobId)
+        && request.resource.data.recruiterId == get(
+          /databases/$(database)/documents/jobs/$(request.resource.data.jobId)
+        ).data.createdBy;
+      allow read: if signedIn() && (
+        resource.data.candidateId == request.auth.uid ||
+        resource.data.recruiterId == request.auth.uid
+      );
+      allow update: if signedIn() && resource.data.recruiterId == request.auth.uid;
+      allow delete: if signedIn() && resource.data.recruiterId == request.auth.uid;
+    }
+  }
+}

@@ -1,82 +1,142 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../services/firestore_service.dart';
 import 'job_management_screen.dart';
+import 'local_resume_store.dart';
 
 class AnalyticsScreen extends StatelessWidget {
   const AnalyticsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<int>(
-      valueListenable: RecruiterLocalStore.jobCount,
-      builder: (context, jobCount, _) {
-        final stats = <_StatItem>[
-          _StatItem(
-            label: 'Total Jobs Posted',
-            value: '$jobCount',
-            icon: Icons.work_outline_rounded,
-            color: const Color(0xFF2563EB),
-          ),
-          const _StatItem(
-            label: 'Total Applications',
-            value: '0',
-            icon: Icons.description_outlined,
-            color: Color(0xFF7C3AED),
-          ),
-          const _StatItem(
-            label: 'Total Candidates',
-            value: '0',
-            icon: Icons.groups_2_outlined,
-            color: Color(0xFF167A5C),
-          ),
-          const _StatItem(
-            label: 'Interviews Scheduled',
-            value: '0',
-            icon: Icons.event_note_outlined,
-            color: Color(0xFF0F766E),
-          ),
-          const _StatItem(
-            label: 'Candidates Hired',
-            value: '0',
-            icon: Icons.verified_outlined,
-            color: Color(0xFF16A34A),
-          ),
-          const _StatItem(
-            label: 'Candidates Rejected',
-            value: '0',
-            icon: Icons.block_outlined,
-            color: Color(0xFFEA580C),
-          ),
-        ];
+    return StreamBuilder<List<JobItem>>(
+      stream: FirestoreService.recruiterJobs(),
+      builder: (context, jobsSnapshot) {
+        if (jobsSnapshot.hasError) {
+          return Center(
+            child: Text('Could not load analytics: ${jobsSnapshot.error}'),
+          );
+        }
+        if (!jobsSnapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        return StreamBuilder<List<ApplicationRecord>>(
+          stream: FirestoreService.recruiterApplications(),
+          builder: (context, applicationsSnapshot) {
+            if (applicationsSnapshot.hasError) {
+              return Center(
+                child: Text(
+                  'Could not load analytics: ${applicationsSnapshot.error}',
+                ),
+              );
+            }
+            if (!applicationsSnapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final jobCount = jobsSnapshot.data!.length;
+            final applications = applicationsSnapshot.data!;
+            final candidateCount = applications
+                .map(
+                  (application) => application.candidateId.isNotEmpty
+                      ? application.candidateId
+                      : application.candidateEmail,
+                )
+                .where((candidate) => candidate.isNotEmpty)
+                .toSet()
+                .length;
+            final interviews = applications
+                .where(
+                  (application) =>
+                      application.status.toLowerCase() ==
+                          'interview scheduled' ||
+                      application.interviewDate?.isNotEmpty == true ||
+                      application.interviewTime?.isNotEmpty == true ||
+                      application.interviewPlatform?.isNotEmpty == true ||
+                      application.meetingLink?.isNotEmpty == true,
+                )
+                .length;
+            final hires = applications
+                .where(
+                  (application) => application.status.toLowerCase() == 'hired',
+                )
+                .length;
+            final rejected = applications
+                .where(
+                  (application) =>
+                      application.status.toLowerCase() == 'rejected',
+                )
+                .length;
+            final stats = <_StatItem>[
+              _StatItem(
+                label: 'Total Jobs Posted',
+                value: '$jobCount',
+                icon: Icons.work_outline_rounded,
+                color: const Color(0xFF2563EB),
+              ),
+              _StatItem(
+                label: 'Total Applications',
+                value: '${applications.length}',
+                icon: Icons.description_outlined,
+                color: Color(0xFF7C3AED),
+              ),
+              _StatItem(
+                label: 'Total Candidates',
+                value: '$candidateCount',
+                icon: Icons.groups_2_outlined,
+                color: Color(0xFF167A5C),
+              ),
+              _StatItem(
+                label: 'Interviews Scheduled',
+                value: '$interviews',
+                icon: Icons.event_note_outlined,
+                color: Color(0xFF0F766E),
+              ),
+              _StatItem(
+                label: 'Candidates Hired',
+                value: '$hires',
+                icon: Icons.verified_outlined,
+                color: Color(0xFF16A34A),
+              ),
+              _StatItem(
+                label: 'Candidates Rejected',
+                value: '$rejected',
+                icon: Icons.block_outlined,
+                color: Color(0xFFEA580C),
+              ),
+            ];
 
-        return RecruiterModuleShell(
-          title: 'Analytics',
-          subtitle: 'Recruitment statistics and placeholder insights.',
-          actionLabel: 'Back to Dashboard',
-          actionIcon: Icons.arrow_back_rounded,
-          actionOnPressed: () => Navigator.of(context).pop(),
-          children: [
-            const SizedBox(height: 24),
-            Wrap(
-              spacing: 16,
-              runSpacing: 16,
-              children: stats
-                  .map(
-                    (stat) =>
-                        SizedBox(width: 220, child: _StatCard(stat: stat)),
-                  )
-                  .toList(),
-            ),
-            const SizedBox(height: 24),
-            const Row(
+            return RecruiterModuleShell(
+              title: 'Analytics',
+              subtitle: 'Recruitment statistics and placeholder insights.',
+              actionLabel: 'Back to Dashboard',
+              actionIcon: Icons.arrow_back_rounded,
+              actionOnPressed: () => Navigator.of(context).pop(),
               children: [
-                Expanded(child: _ChartPlaceholder(title: 'Applications Trend')),
-                SizedBox(width: 16),
-                Expanded(child: _ChartPlaceholder(title: 'Hiring Funnel')),
+                const SizedBox(height: 24),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  children: stats
+                      .map(
+                        (stat) =>
+                            SizedBox(width: 220, child: _StatCard(stat: stat)),
+                      )
+                      .toList(),
+                ),
+                const SizedBox(height: 24),
+                const Row(
+                  children: [
+                    Expanded(
+                      child: _ChartPlaceholder(title: 'Applications Trend'),
+                    ),
+                    SizedBox(width: 16),
+                    Expanded(child: _ChartPlaceholder(title: 'Hiring Funnel')),
+                  ],
+                ),
               ],
-            ),
-          ],
+            );
+          },
         );
       },
     );

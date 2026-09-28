@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -6,9 +7,23 @@ import 'applications_screen.dart';
 import 'candidates_screen.dart';
 import 'interviews_screen.dart';
 import 'job_management_screen.dart';
+import 'signin_screen.dart';
 
 class RecruiterDashboardScreen extends StatelessWidget {
   const RecruiterDashboardScreen({super.key});
+
+  Future<void> _handleLogout(BuildContext context) async {
+    await FirebaseAuth.instance.signOut();
+    if (!context.mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => const SignInScreen(),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
+      (_) => false,
+    );
+  }
 
   void _openScreen(BuildContext context, Widget screen) {
     Navigator.of(context).push(
@@ -66,7 +81,10 @@ class RecruiterDashboardScreen extends StatelessWidget {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _RecruiterHeader(width: width),
+                        _RecruiterHeader(
+                          width: width,
+                          onLogout: () => _handleLogout(context),
+                        ),
                         const SizedBox(height: 24),
                         Wrap(
                           spacing: 18,
@@ -198,9 +216,10 @@ class RecruiterDashboardScreen extends StatelessWidget {
 }
 
 class _RecruiterHeader extends StatelessWidget {
-  const _RecruiterHeader({required this.width});
+  const _RecruiterHeader({required this.width, required this.onLogout});
 
   final double width;
+  final VoidCallback onLogout;
 
   @override
   Widget build(BuildContext context) {
@@ -257,14 +276,52 @@ class _RecruiterHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              Text(
-                'Temporary recruiter workspace for testing navigation and layout only.',
-                style: GoogleFonts.poppins(
-                  fontSize: subtitleSize,
-                  height: 1.5,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF64748B),
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Temporary recruiter workspace for testing navigation and layout only.',
+                      style: GoogleFonts.poppins(
+                        fontSize: subtitleSize,
+                        height: 1.5,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  GestureDetector(
+                    onTap: onLogout,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE2F7EE),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(
+                            Icons.logout_rounded,
+                            size: 18,
+                            color: Color(0xFF0F766E),
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            'Logout',
+                            style: TextStyle(
+                              color: Color(0xFF0F766E),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
