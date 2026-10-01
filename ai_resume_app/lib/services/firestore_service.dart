@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../screens/local_resume_store.dart';
 
@@ -112,6 +113,7 @@ class FirestoreService {
   static Future<void> createApplication({
     required JobItem job,
     required String resumeFileName,
+    required Uint8List resumeBytes,
   }) async {
     final user = _auth.currentUser;
     if (user == null) throw StateError('You must be signed in to apply.');
@@ -164,9 +166,30 @@ class FirestoreService {
       throw StateError('You have already applied to this job.');
     }
 
-    debugPrint('STEP 3: Creating application document');
+    final extension = resumeFileName.split('.').last.toLowerCase();
+    final contentType = switch (extension) {
+      'pdf' => 'application/pdf',
+      'doc' => 'application/msword',
+      'docx' =>
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      _ => throw StateError('Only PDF, DOC, and DOCX resumes are supported.'),
+    };
+    final applicationReference = _applications.doc();
+    final resumeStoragePath =
+        '${user.uid}/$jobId/${applicationReference.id}.$extension';
+
+    debugPrint('STEP 3: Uploading resume to Supabase Storage');
+    await Supabase.instance.client.storage
+        .from('resumes')
+        .uploadBinary(
+          resumeStoragePath,
+          resumeBytes,
+          fileOptions: FileOptions(contentType: contentType, upsert: false),
+        );
+
+    debugPrint('STEP 4: Creating application document');
     try {
-      final applicationReference = await _applications.add({
+      await applicationReference.set({
         'jobId': jobId,
         'jobTitle': job.title,
         'companyName': job.department,
@@ -177,16 +200,26 @@ class FirestoreService {
             ? user.displayName
             : user.email ?? 'Candidate',
         'resumeFileName': resumeFileName,
+        'resumeStoragePath': resumeStoragePath,
         'appliedAt': FieldValue.serverTimestamp(),
         'status': 'Pending',
         'score': null,
       });
       debugPrint(
-        'STEP 3 SUCCESS: Application document created '
+        'STEP 4 SUCCESS: Application document created '
         '(id: ${applicationReference.id})',
       );
     } catch (error, stackTrace) {
-      debugPrint('STEP 3 ERROR: Application create failed: $error');
+      debugPrint('STEP 4 ERROR: Application create failed: $error');
+      try {
+        await Supabase.instance.client.storage.from('resumes').remove([
+          resumeStoragePath,
+        ]);
+      } catch (cleanupError) {
+        debugPrint(
+          'Resume cleanup after Firestore failure failed: $cleanupError',
+        );
+      }
       Error.throwWithStackTrace(error, stackTrace);
     }
   }
@@ -196,5 +229,19 @@ class FirestoreService {
     String status,
   ) async {
     await _applications.doc(application.id).update({'status': status});
+  }
+
+  static Future<void> shortlistApplication(
+    ApplicationRecord application,
+  ) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw StateError('You must be signed in to shortlist a candidate.');
+    }
+    if (application.recruiterId != user.uid) {
+      throw StateError('You are not authorized to update this application.');
+    }
+
+    await _applications.doc(application.id).update({'status': 'Shortlisted'});
   }
 }

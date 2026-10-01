@@ -96,10 +96,12 @@ class ApplicationRecord {
   const ApplicationRecord({
     required this.id,
     this.candidateId = '',
+    this.recruiterId = '',
     required this.candidateName,
     this.candidateEmail = '',
     required this.jobTitle,
     required this.resumeFileName,
+    this.resumeStoragePath,
     required this.submittedAt,
     required this.status,
     this.resumeScore,
@@ -112,10 +114,12 @@ class ApplicationRecord {
 
   final String id;
   final String candidateId;
+  final String recruiterId;
   final String candidateName;
   final String candidateEmail;
   final String jobTitle;
   final String resumeFileName;
+  final String? resumeStoragePath;
   final DateTime submittedAt;
   final String status;
   final int? resumeScore;
@@ -135,10 +139,12 @@ class ApplicationRecord {
     return ApplicationRecord(
       id: id,
       candidateId: candidateId,
+      recruiterId: recruiterId,
       candidateName: candidateName,
       candidateEmail: candidateEmail,
       jobTitle: jobTitle,
       resumeFileName: resumeFileName,
+      resumeStoragePath: resumeStoragePath,
       submittedAt: submittedAt,
       status: status ?? this.status,
       resumeScore: resumeScore,
@@ -158,10 +164,12 @@ class ApplicationRecord {
     return ApplicationRecord(
       id: document.id,
       candidateId: data['candidateId'] as String? ?? '',
+      recruiterId: data['recruiterId'] as String? ?? '',
       candidateName: data['candidateName'] as String? ?? 'Candidate',
       candidateEmail: data['candidateEmail'] as String? ?? '',
       jobTitle: data['jobTitle'] as String? ?? data['jobId'] as String? ?? '',
       resumeFileName: data['resumeFileName'] as String? ?? '',
+      resumeStoragePath: data['resumeStoragePath'] as String?,
       submittedAt: appliedAt is Timestamp ? appliedAt.toDate() : DateTime.now(),
       status: data['status'] as String? ?? 'Pending',
       resumeScore: (data['score'] as num?)?.toInt(),

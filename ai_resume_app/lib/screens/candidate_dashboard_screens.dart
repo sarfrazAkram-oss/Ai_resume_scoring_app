@@ -237,6 +237,7 @@ class _ResumeUploadScreenState extends State<ResumeUploadScreen> {
       await FirestoreService.createApplication(
         job: widget.job,
         resumeFileName: _selectedFile!.name,
+        resumeBytes: _selectedFile!.bytes!,
       );
     } catch (error) {
       if (!mounted) return;
