@@ -41,11 +41,44 @@ class CandidatesScreen extends StatelessWidget {
             }
 
             final rankedApplications =
-                List<ApplicationRecord>.from(applications)..sort(
-                  (left, right) => (right.resumeScore ?? -1).compareTo(
+                List<ApplicationRecord>.from(applications)..sort((left, right) {
+                  final leftGroup = left.jobId.isNotEmpty
+                      ? left.jobId
+                      : left.jobTitle;
+                  final rightGroup = right.jobId.isNotEmpty
+                      ? right.jobId
+                      : right.jobTitle;
+                  final groupCompare = leftGroup.compareTo(rightGroup);
+                  if (groupCompare != 0) {
+                    return groupCompare;
+                  }
+
+                  final leftScored = left.scoringStatus == 'scored' ? 1 : 0;
+                  final rightScored = right.scoringStatus == 'scored' ? 1 : 0;
+                  if (leftScored != rightScored) {
+                    return rightScored.compareTo(leftScored);
+                  }
+
+                  return (right.resumeScore ?? -1).compareTo(
                     left.resumeScore ?? -1,
-                  ),
-                );
+                  );
+                });
+            final ranksByApplicationId = <String, int>{};
+            var currentJobGroup = '';
+            var nextRank = 0;
+            for (final application in rankedApplications) {
+              final jobGroup = application.jobId.isNotEmpty
+                  ? application.jobId
+                  : application.jobTitle;
+              if (jobGroup != currentJobGroup) {
+                currentJobGroup = jobGroup;
+                nextRank = 0;
+              }
+              if (application.scoringStatus == 'scored' &&
+                  application.resumeScore != null) {
+                ranksByApplicationId[application.id] = ++nextRank;
+              }
+            }
 
             return Column(
               children: rankedApplications
@@ -57,21 +90,27 @@ class CandidatesScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            if (ranksByApplicationId[application.id]
+                                case final rank?)
+                              Text(
+                                'Rank #$rank',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             Text(
                               application.candidateName,
                               style: InfoStyles.title,
                             ),
                             const SizedBox(height: 8),
                             Text('Applied Job: ${application.jobTitle}'),
-                            Text(
-                              'Resume Score: ${application.resumeScore ?? 'Pending'}',
-                            ),
+                            Text('Resume Score: ${_scoreLabel(application)}'),
                             if (application.breakdown != null) ...[
                               Text(
-                                'Skills Match: ${application.breakdown!.skillsScore}%',
+                                'Skills Match: ${application.breakdown!.skillsScore?.toStringAsFixed(0) ?? '0'}%',
                               ),
                               Text(
-                                'Experience Match: ${application.breakdown!.experienceScore}%',
+                                'Experience Match: ${application.breakdown!.experienceScore?.toStringAsFixed(0) ?? '0'}%',
                               ),
                             ],
                             Text('Current Status: ${application.status}'),
@@ -86,5 +125,19 @@ class CandidatesScreen extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  String _scoreLabel(ApplicationRecord application) {
+    if (application.scoringStatus == 'failed') {
+      return 'Scoring failed';
+    }
+    if (application.resumeScore == null) {
+      return 'Pending';
+    }
+    final value = application.resumeScore!;
+    final formatted = value % 1 == 0
+        ? value.toStringAsFixed(0)
+        : value.toStringAsFixed(2);
+    return '$formatted / 100';
   }
 }

@@ -1,3 +1,14 @@
+.env
+**/.env
+backend/.env
+.env.*
+!backend/.env.example
+
+*.pem
+*.key
+*service-account*.json
+*firebase*.json
+
 # Miscellaneous
 *.class
 *.log
@@ -32,6 +43,11 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+
+# Resume-ranking source datasets are local inputs, not repository artifacts.
+/backend/data/raw/
+/backend/data/**/model_artifacts/
+/backend/data/**/generated/
 
 # Symbolication related
 app.*.symbols

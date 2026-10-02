@@ -1,0 +1,1 @@
+"""Resume ranking backend application package."""

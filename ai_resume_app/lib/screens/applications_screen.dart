@@ -150,9 +150,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
                               'Candidate Email: ${application.candidateEmail}',
                             ),
                             Text('Resume: ${application.resumeFileName}'),
-                            Text(
-                              'Resume Score: ${application.resumeScore ?? 'Pending'}',
-                            ),
+                            Text('Resume Score: ${_scoreLabel(application)}'),
                             Text(
                               'Applied Date: ${_formatDate(application.submittedAt)}',
                             ),
@@ -209,6 +207,20 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
         ),
       ],
     );
+  }
+
+  String _scoreLabel(ApplicationRecord application) {
+    if (application.scoringStatus == 'failed') {
+      return 'Scoring failed';
+    }
+    if (application.resumeScore == null) {
+      return 'Pending';
+    }
+    final value = application.resumeScore!;
+    final formatted = value % 1 == 0
+        ? value.toStringAsFixed(0)
+        : value.toStringAsFixed(2);
+    return '$formatted / 100';
   }
 
   String _formatDate(DateTime dateTime) {

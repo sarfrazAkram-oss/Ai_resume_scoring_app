@@ -23,6 +23,16 @@ service cloud.firestore {
     }
 
     match /applications/{applicationId} {
+      function scoringFieldsChanged() {
+        return request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'score',
+          'scoreBreakdown',
+          'scoringStatus',
+          'scoringErrorCode',
+          'scoredAt'
+        ]);
+      }
+
       allow create: if signedIn()
         && request.resource.data.candidateId == request.auth.uid
         && jobExists(request.resource.data.jobId)
@@ -33,7 +43,26 @@ service cloud.firestore {
         resource.data.candidateId == request.auth.uid ||
         resource.data.recruiterId == request.auth.uid
       );
-      allow update: if signedIn() && resource.data.recruiterId == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.recruiterId == request.auth.uid
+        && !scoringFieldsChanged()
+        && request.resource.data.recruiterId == resource.data.recruiterId
+        && request.resource.data.candidateId == resource.data.candidateId
+        && request.resource.data.jobId == resource.data.jobId
+        && request.resource.data.jobTitle == resource.data.jobTitle
+        && request.resource.data.companyName == resource.data.companyName
+        && request.resource.data.candidateEmail == resource.data.candidateEmail
+        && request.resource.data.candidateName == resource.data.candidateName
+        && request.resource.data.resumeFileName == resource.data.resumeFileName
+        && request.resource.data.resumeStoragePath == resource.data.resumeStoragePath
+        && request.resource.data.appliedAt == resource.data.appliedAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'interviewDate',
+          'interviewTime',
+          'interviewPlatform',
+          'meetingLink'
+        ]);
       allow delete: if signedIn() && resource.data.recruiterId == request.auth.uid;
     }
   }

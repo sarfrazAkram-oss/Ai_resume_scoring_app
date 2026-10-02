@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../services/firestore_service.dart';
+import '../services/backend_api_service.dart';
 import 'local_resume_store.dart';
 
 class AvailableJobsScreen extends StatelessWidget {
@@ -224,17 +225,18 @@ class _ResumeUploadScreenState extends State<ResumeUploadScreen> {
 
     setState(() {
       _isAnalyzing = true;
-      _analysisMessage = 'Uploading Resume...';
+      _analysisMessage = 'Uploading resume and submitting application...';
       _breakdown = null;
     });
 
+    late final String applicationId;
     try {
       final user = FirebaseAuth.instance.currentUser;
       debugPrint('=== APPLICATION SUBMIT START ===');
       debugPrint('Application submit auth uid: ${user?.uid}');
       debugPrint('Application submit auth email: ${user?.email}');
       debugPrint('Application submit jobId: ${widget.job.id}');
-      await FirestoreService.createApplication(
+      applicationId = await FirestoreService.createApplication(
         job: widget.job,
         resumeFileName: _selectedFile!.name,
         resumeBytes: _selectedFile!.bytes!,
@@ -248,13 +250,30 @@ class _ResumeUploadScreenState extends State<ResumeUploadScreen> {
       return;
     }
 
+    if (!mounted) return;
+    setState(
+      () => _analysisMessage = 'Application submitted. Scoring resume...',
+    );
+
+    var scoringSucceeded = false;
+    try {
+      await BackendApiService.instance.scoreApplication(
+        applicationId: applicationId,
+      );
+      scoringSucceeded = true;
+    } catch (_) {
+      // Keep the submitted application even when scoring fails.
+    }
+
     if (!mounted) {
       return;
     }
 
     setState(() {
       _isAnalyzing = false;
-      _analysisMessage = 'Application submitted successfully.';
+      _analysisMessage = scoringSucceeded
+          ? 'Application submitted successfully.'
+          : 'Application submitted, but resume scoring could not be completed.';
       _breakdown = null;
     });
   }

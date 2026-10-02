@@ -59,8 +59,9 @@ class FirestoreService {
 
   static Future<void> createJob(JobItem job) async {
     final user = _auth.currentUser;
-    if (user == null)
+    if (user == null) {
       throw StateError('You must be signed in to create a job.');
+    }
     await _jobs.add(job.toFirestore(createdBy: user.uid));
   }
 
@@ -94,23 +95,17 @@ class FirestoreService {
   static Stream<List<ApplicationRecord>> recruiterApplications() {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return Stream.value(const <ApplicationRecord>[]);
-    return _jobs.where('createdBy', isEqualTo: uid).snapshots().asyncMap((
-      jobsSnapshot,
-    ) async {
-      final jobIds = jobsSnapshot.docs.map((doc) => doc.id).toSet();
-      if (jobIds.isEmpty) return <ApplicationRecord>[];
-      final applications = await _applications
-          .where('recruiterId', isEqualTo: uid)
-          .orderBy('appliedAt', descending: true)
-          .get();
-      return applications.docs
-          .where((doc) => jobIds.contains(doc.data()['jobId']))
-          .map(ApplicationRecord.fromFirestore)
-          .toList();
-    });
+    return _applications
+        .where('recruiterId', isEqualTo: uid)
+        .orderBy('appliedAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs.map(ApplicationRecord.fromFirestore).toList(),
+        );
   }
 
-  static Future<void> createApplication({
+  static Future<String> createApplication({
     required JobItem job,
     required String resumeFileName,
     required Uint8List resumeBytes,
@@ -204,6 +199,7 @@ class FirestoreService {
         'appliedAt': FieldValue.serverTimestamp(),
         'status': 'Pending',
         'score': null,
+        'scoringStatus': 'pending',
       });
       debugPrint(
         'STEP 4 SUCCESS: Application document created '
@@ -222,6 +218,8 @@ class FirestoreService {
       }
       Error.throwWithStackTrace(error, stackTrace);
     }
+
+    return applicationReference.id;
   }
 
   static Future<void> updateApplicationStatus(
