@@ -1,4 +1,5 @@
 import unittest
+from datetime import date
 
 from app.services.resume_scorer import score_experience, score_skills
 
@@ -20,6 +21,13 @@ class ScoreSkillsTests(unittest.TestCase):
     def test_exact_and_case_insensitive_matches(self) -> None:
         result = score_skills(["fLuTtEr", "DART"], ["Flutter", "Dart"])
         self.assertEqual(result["matchedSkills"], ["Flutter", "Dart"])
+        self.assertEqual(result["skillsScore"], 40.0)
+
+    def test_rest_apis_requirement_matches_rest_api_evidence(self) -> None:
+        result = score_skills(["REST API"], ["REST APIs"])
+
+        self.assertEqual(result["matchedSkills"], ["REST APIs"])
+        self.assertEqual(result["missingSkills"], [])
         self.assertEqual(result["skillsScore"], 40.0)
 
 
@@ -80,6 +88,22 @@ class ScoreExperienceTests(unittest.TestCase):
         self.assertEqual(month_range["experienceScore"], 25.0)
         self.assertEqual(year_range["experienceScore"], 25.0)
 
+    def test_present_date_ranges_use_current_month_conservatively(self) -> None:
+        expected_months = (date.today().year - 2021) * 12 + date.today().month - 1
+        for date_range in ("2021 - Present", "2021 – Present", "2021 to Present"):
+            with self.subTest(date_range=date_range):
+                result = score_experience([{"text": date_range}], "1 year")
+                self.assertEqual(
+                    result["candidateYears"],
+                    round(expected_months / 12, 2),
+                )
+
+    def test_month_names_and_present_ranges_are_supported(self) -> None:
+        result = score_experience(
+            [{"text": "Jan 2022 – Dec 2024"}], "2 years"
+        )
+        self.assertEqual(result["candidateYears"], 2.92)
+
     def test_multiple_distinct_entries_are_summed(self) -> None:
         result = score_experience(
             [{"text": "1 year at Company A"}, {"text": "6 months at Company B"}],
@@ -97,6 +121,16 @@ class ScoreExperienceTests(unittest.TestCase):
     def test_overlapping_date_ranges_in_one_entry_are_merged(self) -> None:
         result = score_experience(
             [{"text": "Jan 2020 - Jan 2022; Jan 2021 - Jan 2023"}], "3 years"
+        )
+        self.assertEqual(result["candidateYears"], 3.0)
+
+    def test_overlapping_date_ranges_across_entries_are_merged(self) -> None:
+        result = score_experience(
+            [
+                {"text": "Jan 2020 - Jan 2022"},
+                {"text": "Jan 2021 - Jan 2023"},
+            ],
+            "3 years",
         )
         self.assertEqual(result["candidateYears"], 3.0)
 

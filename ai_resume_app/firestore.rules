@@ -6,11 +6,6 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function jobExists(jobId) {
-      return signedIn() &&
-        exists(/databases/$(database)/documents/jobs/$(jobId));
-    }
-
     match /jobs/{jobId} {
       allow read: if signedIn() &&
         (resource.data.status == 'active' ||
@@ -33,14 +28,8 @@ service cloud.firestore {
         ]);
       }
 
-      allow create: if signedIn()
-        && request.resource.data.candidateId == request.auth.uid
-        && jobExists(request.resource.data.jobId)
-        && request.resource.data.recruiterId == get(
-          /databases/$(database)/documents/jobs/$(request.resource.data.jobId)
-        ).data.createdBy;
+      allow create: if false;
       allow read: if signedIn() && (
-        resource.data.candidateId == request.auth.uid ||
         resource.data.recruiterId == request.auth.uid
       );
       allow update: if signedIn()
@@ -58,12 +47,49 @@ service cloud.firestore {
         && request.resource.data.appliedAt == resource.data.appliedAt
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'status',
+          'scoreShared',
           'interviewDate',
           'interviewTime',
           'interviewPlatform',
           'meetingLink'
-        ]);
+        ])
+        && request.resource.data.scoreShared is bool;
       allow delete: if signedIn() && resource.data.recruiterId == request.auth.uid;
+    }
+
+    match /candidateApplications/{applicationId} {
+      allow read: if signedIn() &&
+        resource.data.candidateId == request.auth.uid;
+      allow create: if false;
+      allow update: if signedIn() &&
+        resource.data.recruiterId == request.auth.uid &&
+        request.resource.data.keys().hasAll([
+          'jobId',
+          'jobTitle',
+          'recruiterId',
+          'candidateId',
+          'candidateName',
+          'resumeFileName',
+          'appliedAt',
+          'status',
+          'scoreShared'
+        ]) &&
+        request.resource.data.jobId == resource.data.jobId &&
+        request.resource.data.recruiterId == resource.data.recruiterId &&
+        request.resource.data.candidateId == resource.data.candidateId &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'scoreShared'
+        ]);
+    }
+
+    match /candidateApplicationScores/{applicationId} {
+      allow read: if signedIn() &&
+        get(/databases/$(database)/documents/applications/$(applicationId))
+          .data.candidateId == request.auth.uid &&
+        get(/databases/$(database)/documents/applications/$(applicationId))
+          .data.scoreShared == true;
+      allow create, update, delete: if false;
     }
   }
 }

@@ -21,6 +21,22 @@
       "queryScope": "COLLECTION",
       "fields": [
         {"fieldPath": "candidateId", "order": "ASCENDING"},
+        {"fieldPath": "jobId", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "applications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "candidateId", "order": "ASCENDING"},
+        {"fieldPath": "appliedAt", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "candidateApplications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "candidateId", "order": "ASCENDING"},
         {"fieldPath": "appliedAt", "order": "DESCENDING"}
       ]
     },
@@ -30,6 +46,14 @@
       "fields": [
         {"fieldPath": "recruiterId", "order": "ASCENDING"},
         {"fieldPath": "appliedAt", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "applications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "recruiterId", "order": "ASCENDING"},
+        {"fieldPath": "jobId", "order": "ASCENDING"}
       ]
     }
   ],

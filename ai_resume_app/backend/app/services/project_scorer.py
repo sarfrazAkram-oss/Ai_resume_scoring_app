@@ -1,6 +1,6 @@
 import re
 from collections.abc import Sequence
-from typing import TypedDict
+from typing_extensions import TypedDict
 
 from app.services.resume_scorer import (
     _SKILL_ALIASES,

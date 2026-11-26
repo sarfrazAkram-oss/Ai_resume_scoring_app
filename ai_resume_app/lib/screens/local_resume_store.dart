@@ -15,6 +15,14 @@ class JobItem {
     required this.salaryRange,
     required this.applicants,
     required this.status,
+    this.jobType = 'fresh_graduate',
+    this.skillsRequirement = 'required',
+    this.experienceRequirement = 'preferred',
+    this.experienceYears,
+    this.educationRequirement = 'required',
+    this.projectsRequirement = 'preferred',
+    this.projectCriteria = '',
+    this.scoringPolicyVersion = 2,
   });
 
   final String? id;
@@ -29,6 +37,14 @@ class JobItem {
   final String salaryRange;
   final int applicants;
   final String status;
+  final String jobType;
+  final String skillsRequirement;
+  final String experienceRequirement;
+  final String? experienceYears;
+  final String educationRequirement;
+  final String projectsRequirement;
+  final String projectCriteria;
+  final int? scoringPolicyVersion;
 
   factory JobItem.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> document,
@@ -36,6 +52,7 @@ class JobItem {
     final data = document.data() ?? <String, dynamic>{};
     final requirements = data['requirements'] as String? ?? '';
     final storedStatus = (data['status'] as String?)?.trim().toLowerCase();
+    final policyVersion = data['scoringPolicyVersion'] as int?;
     return JobItem(
       id: document.id,
       title: data['title'] as String? ?? '',
@@ -55,6 +72,20 @@ class JobItem {
               storedStatus == 'open'
           ? 'Open'
           : 'Closed',
+      jobType: (data['jobType'] as String?) ?? 'fresh_graduate',
+      skillsRequirement: (data['skillsRequirement'] as String?) ?? 'required',
+      experienceRequirement:
+          (data['experienceRequirement'] as String?) ?? 'preferred',
+      experienceYears:
+          data['experienceYears'] as String? ??
+          (data['minimumExperienceYears'] as String?) ??
+          '',
+      educationRequirement:
+          (data['educationRequirement'] as String?) ?? 'required',
+      projectsRequirement:
+          (data['projectsRequirement'] as String?) ?? 'preferred',
+      projectCriteria: (data['projectCriteria'] as String?) ?? '',
+      scoringPolicyVersion: policyVersion,
     );
   }
 
@@ -76,7 +107,30 @@ class JobItem {
     'createdBy': createdBy,
     'createdAt': FieldValue.serverTimestamp(),
     'status': status.toLowerCase() == 'open' ? 'active' : 'inactive',
+    if (scoringPolicyVersion != null) ...{
+      'scoringPolicyVersion': scoringPolicyVersion,
+      'jobType': jobType,
+      'skillsRequirement': skillsRequirement,
+      'experienceRequirement': experienceRequirement,
+      'experienceYears': experienceYears,
+      'educationRequirement': educationRequirement,
+      'projectsRequirement': projectsRequirement,
+      'projectCriteria': projectCriteria,
+    },
   };
+
+  bool hasSameScoringPolicyAs(JobItem other) =>
+      scoringPolicyVersion == other.scoringPolicyVersion &&
+      jobType == other.jobType &&
+      requiredSkills == other.requiredSkills &&
+      experience == other.experience &&
+      education == other.education &&
+      skillsRequirement == other.skillsRequirement &&
+      experienceRequirement == other.experienceRequirement &&
+      experienceYears == other.experienceYears &&
+      educationRequirement == other.educationRequirement &&
+      projectsRequirement == other.projectsRequirement &&
+      projectCriteria == other.projectCriteria;
 }
 
 class ResumeScoreBreakdown {
@@ -85,22 +139,26 @@ class ResumeScoreBreakdown {
     this.experienceScore,
     this.educationScore,
     this.projectsScore,
+    this.practicalWorkScore,
     required this.finalScore,
     this.skillsMax,
     this.experienceMax,
     this.educationMax,
     this.projectsMax,
+    this.practicalWorkMax,
   });
 
   final double? skillsScore;
   final double? experienceScore;
   final double? educationScore;
   final double? projectsScore;
+  final double? practicalWorkScore;
   final double finalScore;
   final int? skillsMax;
   final int? experienceMax;
   final int? educationMax;
   final int? projectsMax;
+  final int? practicalWorkMax;
 
   factory ResumeScoreBreakdown.fromMap(Map<String, dynamic> data) {
     final finalScoreValue = _coerceDouble(data['finalScore']) ?? 0.0;
@@ -109,13 +167,32 @@ class ResumeScoreBreakdown {
       experienceScore: _coerceDouble(data['experienceScore']),
       educationScore: _coerceDouble(data['educationScore']),
       projectsScore: _coerceDouble(data['projectsScore']),
+      practicalWorkScore: _coerceDouble(
+        data['practicalWorkScore'] ?? data['projectsScore'],
+      ),
       finalScore: finalScoreValue,
       skillsMax: data['skillsMax'] as int? ?? 40,
       experienceMax: data['experienceMax'] as int? ?? 25,
       educationMax: data['educationMax'] as int? ?? 20,
       projectsMax: data['projectsMax'] as int? ?? 15,
+      practicalWorkMax:
+          data['practicalWorkMax'] as int? ?? data['projectsMax'] as int? ?? 15,
     );
   }
+
+  Map<String, dynamic> toMap() => {
+    if (skillsScore != null) 'skillsScore': skillsScore,
+    if (experienceScore != null) 'experienceScore': experienceScore,
+    if (educationScore != null) 'educationScore': educationScore,
+    if (projectsScore != null) 'projectsScore': projectsScore,
+    if (practicalWorkScore != null) 'practicalWorkScore': practicalWorkScore,
+    'finalScore': finalScore,
+    if (skillsMax != null) 'skillsMax': skillsMax,
+    if (experienceMax != null) 'experienceMax': experienceMax,
+    if (educationMax != null) 'educationMax': educationMax,
+    if (projectsMax != null) 'projectsMax': projectsMax,
+    if (practicalWorkMax != null) 'practicalWorkMax': practicalWorkMax,
+  };
 
   static double? _coerceDouble(Object? value) {
     if (value is num) {
@@ -144,6 +221,8 @@ class ApplicationRecord {
     this.resumeScore,
     this.breakdown,
     this.scoringStatus = 'pending',
+    this.scoreShared = false,
+    this.scoringModelVersion,
     this.scoringErrorCode,
     this.interviewDate,
     this.interviewTime,
@@ -165,6 +244,8 @@ class ApplicationRecord {
   final double? resumeScore;
   final ResumeScoreBreakdown? breakdown;
   final String scoringStatus;
+  final bool scoreShared;
+  final int? scoringModelVersion;
   final String? scoringErrorCode;
   final String? interviewDate;
   final String? interviewTime;
@@ -174,7 +255,9 @@ class ApplicationRecord {
   ApplicationRecord copyWith({
     String? status,
     String? scoringStatus,
+    int? scoringModelVersion,
     String? scoringErrorCode,
+    bool? scoreShared,
     double? resumeScore,
     ResumeScoreBreakdown? breakdown,
     String? interviewDate,
@@ -197,7 +280,9 @@ class ApplicationRecord {
       resumeScore: resumeScore ?? this.resumeScore,
       breakdown: breakdown ?? this.breakdown,
       scoringStatus: scoringStatus ?? this.scoringStatus,
+      scoringModelVersion: scoringModelVersion ?? this.scoringModelVersion,
       scoringErrorCode: scoringErrorCode ?? this.scoringErrorCode,
+      scoreShared: scoreShared ?? this.scoreShared,
       interviewDate: interviewDate ?? this.interviewDate,
       interviewTime: interviewTime ?? this.interviewTime,
       interviewPlatform: interviewPlatform ?? this.interviewPlatform,
@@ -212,6 +297,11 @@ class ApplicationRecord {
     final appliedAt = data['appliedAt'];
     final scoreValue = data['score'];
     final scoreBreakdown = data['scoreBreakdown'];
+    final modelVersion =
+        data['scoringModelVersion'] ??
+        (scoreBreakdown is Map<String, dynamic>
+            ? scoreBreakdown['scoringModelVersion']
+            : null);
     final scoringStatus = (data['scoringStatus'] as String?)?.trim();
     final storedStatus = data['status'] as String? ?? 'Pending';
     return ApplicationRecord(
@@ -232,6 +322,8 @@ class ApplicationRecord {
           : null,
       scoringStatus:
           scoringStatus ?? (scoreValue == null ? 'pending' : 'scored'),
+      scoreShared: data['scoreShared'] as bool? ?? false,
+      scoringModelVersion: modelVersion is num ? modelVersion.toInt() : null,
       scoringErrorCode: data['scoringErrorCode'] as String?,
       interviewDate: data['interviewDate'] as String?,
       interviewTime: data['interviewTime'] as String?,

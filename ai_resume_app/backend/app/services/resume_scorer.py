@@ -1,6 +1,7 @@
 import re
 from collections.abc import Sequence
-from typing import TypedDict
+from datetime import date
+from typing_extensions import TypedDict
 
 
 SKILLS_MAX_SCORE = 40
@@ -12,6 +13,13 @@ _SKILL_ALIASES = {
     "nodejs": "node.js",
     "reactjs": "react",
     "flutter framework": "flutter",
+    "rest apis": "rest api",
+    "hr": "human resources",
+    "crm": "customer relationship management",
+    "seo": "search engine optimization",
+    "emr": "electronic medical records",
+    "cad": "computer-aided design",
+    "computer aided design": "computer-aided design",
 }
 _DISPLAY_NAMES = {
     "javascript": "JavaScript",
@@ -19,6 +27,11 @@ _DISPLAY_NAMES = {
     "node.js": "Node.js",
     "react": "React",
     "flutter": "Flutter",
+    "human resources": "Human Resources",
+    "customer relationship management": "Customer Relationship Management",
+    "search engine optimization": "Search Engine Optimization",
+    "electronic medical records": "Electronic Medical Records",
+    "computer-aided design": "Computer-Aided Design",
 }
 EXPERIENCE_MAX_SCORE = 25
 _REQUIRED_YEAR_RANGE = re.compile(
@@ -44,18 +57,19 @@ _DURATION = re.compile(
     re.IGNORECASE,
 )
 _DATE_RANGE = re.compile(
-    r"(?P<start_month>jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|"
-    r"may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|"
+    r"\b(?P<start_month>jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|"
+    r"may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?|tember)?|oct(?:ober)?|"
     r"nov(?:ember)?|dec(?:ember)?)\.?\s+(?P<start_year>\d{4})\s*"
     r"(?:-|–|—|to)\s*"
-    r"(?P<end_month>jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|"
-    r"may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|"
-    r"nov(?:ember)?|dec(?:ember)?)\.?\s+(?P<end_year>\d{4})",
+    r"(?:(?P<end_month>jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|"
+    r"may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?|tember)?|oct(?:ober)?|"
+    r"nov(?:ember)?|dec(?:ember)?)\.?\s+(?P<end_year>\d{4})|"
+    r"(?P<end_current>present|current|now))",
     re.IGNORECASE,
 )
 _YEAR_RANGE_ANY = re.compile(
     r"\b(?:19\d{2}|20\d{2})\s*(?:-|–|—|to)\s*"
-    r"(?:19\d{2}|20\d{2}|present|current|now)\b",
+    r"(?P<end_year>19\d{2}|20\d{2}|present|current|now)\b",
     re.IGNORECASE,
 )
 _MONTH_NUMBERS = {
@@ -75,6 +89,7 @@ _MONTH_NUMBERS = {
     "aug": 8,
     "august": 8,
     "sep": 9,
+    "sept": 9,
     "september": 9,
     "oct": 10,
     "october": 10,
@@ -212,9 +227,13 @@ def _dated_range_months(
         start = int(match.group("start_year")) * 12 + _MONTH_NUMBERS[
             match.group("start_month").casefold()
         ]
-        end = int(match.group("end_year")) * 12 + _MONTH_NUMBERS[
-            match.group("end_month").casefold()
-        ]
+        if match.group("end_current"):
+            today = date.today()
+            end = today.year * 12 + today.month
+        else:
+            end = int(match.group("end_year")) * 12 + _MONTH_NUMBERS[
+                match.group("end_month").casefold()
+            ]
         if end > start:
             intervals.append((start, end))
             covered_spans.append(match.span())
@@ -223,12 +242,13 @@ def _dated_range_months(
         if any(match.start() < end and match.end() > start for start, end in covered_spans):
             continue
         start_year = int(match.group(0)[:4])
-        end_text = re.search(r"(?:19|20)\d{2}", match.group(0)[4:])
-        if end_text is None:
-            continue
-        end_year = int(end_text.group(0))
+        end_year_value = match.group("end_year")
         start = start_year * 12 + 1
-        end = end_year * 12 + 1
+        if end_year_value.casefold() in {"present", "current", "now"}:
+            today = date.today()
+            end = today.year * 12 + today.month
+        else:
+            end = int(end_year_value) * 12 + 1
         if end > start:
             intervals.append((start, end))
             covered_spans.append(match.span())
@@ -252,26 +272,6 @@ def _merge_intervals(intervals: list[tuple[int, int]]) -> int:
     return total_months
 
 
-def _entry_candidate_years(entry_text: str) -> float:
-    text = entry_text.strip()
-    dated_intervals, date_spans = _dated_range_months(text)
-    date_months = _merge_intervals(dated_intervals)
-
-    explicit_durations = [
-        _duration_years(match.group("amount"), match.group("unit"))
-        for match in _DURATION.finditer(text)
-        if not any(
-            match.start() < span_end and match.end() > span_start
-            for span_start, span_end in date_spans
-        )
-    ]
-    duration_years = max(explicit_durations, default=0.0)
-
-    # Written durations and date ranges often describe the same role. Use one
-    # conservative estimate for this entry; separate entries are summed later.
-    return max(date_months / 12, duration_years)
-
-
 def _experience_entries(experience: Sequence[str | dict[str, str]]) -> list[str]:
     entries: list[str] = []
     for entry in experience:
@@ -286,8 +286,26 @@ def score_experience(
     required_experience: str,
 ) -> ExperienceScore:
     required_years = _parse_required_years(required_experience)
-    entry_years = [_entry_candidate_years(entry) for entry in _experience_entries(resume_experience)]
-    candidate_years = round(sum(entry_years), 2)
+    dated_intervals: list[tuple[int, int]] = []
+    explicit_duration_years = 0.0
+    for entry in _experience_entries(resume_experience):
+        intervals, date_spans = _dated_range_months(entry)
+        dated_intervals.extend(intervals)
+        if intervals:
+            continue
+        durations = [
+            _duration_years(match.group("amount"), match.group("unit"))
+            for match in _DURATION.finditer(entry)
+            if not any(
+                match.start() < span_end and match.end() > span_start
+                for span_start, span_end in date_spans
+            )
+        ]
+        explicit_duration_years += max(durations, default=0.0)
+    candidate_years = round(
+        _merge_intervals(dated_intervals) / 12 + explicit_duration_years,
+        2,
+    )
 
     if required_years is None:
         return {

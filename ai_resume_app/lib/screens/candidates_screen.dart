@@ -105,12 +105,21 @@ class CandidatesScreen extends StatelessWidget {
                             const SizedBox(height: 8),
                             Text('Applied Job: ${application.jobTitle}'),
                             Text('Resume Score: ${_scoreLabel(application)}'),
+                            Text(
+                              'Score sharing: ${application.scoreShared ? 'Shared' : 'Not Shared'}',
+                            ),
                             if (application.breakdown != null) ...[
                               Text(
-                                'Skills Match: ${application.breakdown!.skillsScore?.toStringAsFixed(0) ?? '0'}%',
+                                'Skills: ${application.breakdown!.skillsScore?.toStringAsFixed(0) ?? '0'} / ${application.breakdown!.skillsMax ?? 40}',
                               ),
                               Text(
-                                'Experience Match: ${application.breakdown!.experienceScore?.toStringAsFixed(0) ?? '0'}%',
+                                'Experience: ${application.breakdown!.experienceScore?.toStringAsFixed(0) ?? '0'} / ${application.breakdown!.experienceMax ?? 25}',
+                              ),
+                              Text(
+                                'Education: ${application.breakdown!.educationScore?.toStringAsFixed(0) ?? '0'} / ${application.breakdown!.educationMax ?? 20}',
+                              ),
+                              Text(
+                                'Practical Work & Achievements: ${application.breakdown!.practicalWorkScore?.toStringAsFixed(0) ?? '0'} / ${application.breakdown!.practicalWorkMax ?? 15}',
                               ),
                             ],
                             Text('Current Status: ${application.status}'),

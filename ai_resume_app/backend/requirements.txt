@@ -3,8 +3,11 @@ uvicorn
 python-multipart
 pypdf
 python-docx
+Pillow
+pytesseract
 pandas
 scikit-learn
 firebase-admin
 python-dotenv
 httpx
+typing-extensions

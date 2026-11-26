@@ -89,11 +89,90 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
   }
 
   Future<void> _shortlistApplication(ApplicationRecord application) async {
+    if (!_loadingApplicationIds.add(application.id)) {
+      return;
+    }
+    setState(() {});
     try {
       await FirestoreService.shortlistApplication(application);
       _showMessage('Candidate shortlisted successfully.');
     } catch (_) {
       _showMessage('Could not shortlist candidate. Please try again.');
+    } finally {
+      if (mounted) {
+        setState(() => _loadingApplicationIds.remove(application.id));
+      }
+    }
+  }
+
+  Future<void> _selectForInterview(ApplicationRecord application) async {
+    if (!_loadingApplicationIds.add(application.id)) {
+      return;
+    }
+    setState(() {});
+    try {
+      await FirestoreService.updateApplicationStatus(
+        application,
+        'Selected for Interview',
+      );
+      _showMessage('Candidate selected for interview.');
+    } catch (_) {
+      _showMessage('Could not select candidate. Please try again.');
+    } finally {
+      if (mounted) {
+        setState(() => _loadingApplicationIds.remove(application.id));
+      }
+    }
+  }
+
+  Future<void> _rejectApplication(ApplicationRecord application) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reject application?'),
+        content: const Text(
+          'This will notify the candidate that their application was not selected.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Reject Application'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !_loadingApplicationIds.add(application.id)) {
+      return;
+    }
+    setState(() {});
+    try {
+      await FirestoreService.rejectApplication(application);
+      _showMessage('Application rejected.');
+    } catch (_) {
+      _showMessage('Could not reject application. Please try again.');
+    } finally {
+      if (mounted) {
+        setState(() => _loadingApplicationIds.remove(application.id));
+      }
+    }
+  }
+
+  Future<void> _shareScore(ApplicationRecord application) async {
+    if (!_loadingApplicationIds.add(application.id)) return;
+    setState(() {});
+    try {
+      await FirestoreService.shareScore(application);
+      _showMessage('Score shared with the candidate.');
+    } catch (_) {
+      _showMessage('Could not share the score. Please try again.');
+    } finally {
+      if (mounted) {
+        setState(() => _loadingApplicationIds.remove(application.id));
+      }
     }
   }
 
@@ -152,6 +231,23 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
                             Text('Resume: ${application.resumeFileName}'),
                             Text('Resume Score: ${_scoreLabel(application)}'),
                             Text(
+                              'Score sharing: ${application.scoreShared ? 'Shared' : 'Not Shared'}',
+                            ),
+                            if (application.breakdown != null) ...[
+                              Text(
+                                'Skills: ${application.breakdown!.skillsScore?.toStringAsFixed(0) ?? '0'} / ${application.breakdown!.skillsMax ?? 40}',
+                              ),
+                              Text(
+                                'Experience: ${application.breakdown!.experienceScore?.toStringAsFixed(0) ?? '0'} / ${application.breakdown!.experienceMax ?? 25}',
+                              ),
+                              Text(
+                                'Education: ${application.breakdown!.educationScore?.toStringAsFixed(0) ?? '0'} / ${application.breakdown!.educationMax ?? 20}',
+                              ),
+                              Text(
+                                'Practical Work & Achievements: ${application.breakdown!.practicalWorkScore?.toStringAsFixed(0) ?? '0'} / ${application.breakdown!.practicalWorkMax ?? 15}',
+                              ),
+                            ],
+                            Text(
                               'Applied Date: ${_formatDate(application.submittedAt)}',
                             ),
                             Text('Status: ${application.status}'),
@@ -187,13 +283,18 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
                                       _shortlistApplication(application),
                                 ),
                                 PillAction(
-                                  label: 'Interview Scheduled',
-                                  onTap: () =>
-                                      FirestoreService.updateApplicationStatus(
-                                        application,
-                                        'Interview Scheduled',
-                                      ),
+                                  label: 'Select for Interview',
+                                  onTap: () => _selectForInterview(application),
                                 ),
+                                PillAction(
+                                  label: 'Reject Application',
+                                  onTap: () => _rejectApplication(application),
+                                ),
+                                if (!application.scoreShared)
+                                  PillAction(
+                                    label: 'Share Score with Candidate',
+                                    onTap: () => _shareScore(application),
+                                  ),
                               ],
                             ),
                           ],

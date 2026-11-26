@@ -17,9 +17,9 @@ class _SplashScreenState extends State<SplashScreen> {
 
   final List<_OnboardingData> _pages = const [
     _OnboardingData(
-      title: 'AI-Based Resume\nScreening & Interview\nSystem',
+      title: 'Your Career, Smarter.',
       description:
-          'Automate & enhance your hiring\nprocess with intelligent AI screening & interviews.',
+          'Let AI uncover your potential and connect you with opportunities that truly match.',
       lightBackground: false,
       variant: _OnboardingVariant.resume,
     ),
@@ -109,87 +109,18 @@ class _SplashScreenState extends State<SplashScreen> {
               },
               child: Row(
                 children: [
-                  for (final page in _pages)
+                  for (var index = 0; index < _pages.length; index++)
                     SizedBox(
                       width: pageWidth,
-                      child: _OnboardingPage(data: page, pageWidth: pageWidth),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 12, 18, 24),
-              child: Column(
-                children: [
-                  Align(
-                    alignment: Alignment.topRight,
-                    child: TextButton(
-                      onPressed: _goToSignIn,
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF325C8B),
-                        textStyle: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      child: _OnboardingPage(
+                        data: _pages[index],
+                        pageWidth: pageWidth,
+                        isFirstPage: index == 0,
+                        isSecondPage: index == 1,
+                        onSkip: _goToSignIn,
+                        onNext: () => _scrollToNextPage(context),
                       ),
-                      child: const Text('Skip >'),
                     ),
-                  ),
-                  const Spacer(),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Row(
-                      children: [
-                        const Spacer(),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: List.generate(_pages.length, (index) {
-                            final isActive = index == _currentPage;
-                            return AnimatedContainer(
-                              duration: const Duration(milliseconds: 220),
-                              margin: const EdgeInsets.symmetric(horizontal: 4),
-                              width: isActive ? 18 : 7,
-                              height: 7,
-                              decoration: BoxDecoration(
-                                color: isActive
-                                    ? const Color(0xFF8FB9E3)
-                                    : const Color(0xFFBDD0E6).withOpacity(0.8),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                            );
-                          }),
-                        ),
-                        const Spacer(),
-                        GestureDetector(
-                          onTap: () => _scrollToNextPage(context),
-                          child: Container(
-                            width: 58,
-                            height: 58,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.72),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(
-                                    0xFF4A79B9,
-                                  ).withOpacity(0.08),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 6),
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.keyboard_arrow_right_rounded,
-                              color: Color(0xFF325C8B),
-                              size: 36,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -201,79 +132,1183 @@ class _SplashScreenState extends State<SplashScreen> {
 }
 
 class _OnboardingPage extends StatelessWidget {
-  const _OnboardingPage({required this.data, required this.pageWidth});
+  const _OnboardingPage({
+    required this.data,
+    required this.pageWidth,
+    required this.isFirstPage,
+    required this.isSecondPage,
+    required this.onSkip,
+    required this.onNext,
+  });
 
   final _OnboardingData data;
   final double pageWidth;
+  final bool isFirstPage;
+  final bool isSecondPage;
+  final VoidCallback onSkip;
+  final VoidCallback onNext;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: pageWidth,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1C4678), Color(0xFF2E5C93)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+    if (isFirstPage) {
+      return _FirstOnboardingPage(onSkip: onSkip, onNext: onNext);
+    }
+    if (isSecondPage) {
+      return _SecondOnboardingPage(onSkip: onSkip, onNext: onNext);
+    }
+    return _ThirdOnboardingPage(onSkip: onSkip, onNext: onNext);
+  }
+}
+
+class _SecondOnboardingPage extends StatelessWidget {
+  const _SecondOnboardingPage({required this.onSkip, required this.onNext});
+
+  final VoidCallback onSkip;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF0D1422), Color(0xFF111C2C), Color(0xFF101B29)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
       ),
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final wideLayout = constraints.maxWidth >= 900;
+            final horizontalPadding = wideLayout ? 40.0 : 24.0;
+
+            return Column(
+              children: [
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1360),
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        horizontalPadding,
+                        12,
+                        horizontalPadding,
+                        12,
+                      ),
+                      child: _FirstPageHeader(onSkip: onSkip),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: wideLayout
+                      ? _buildWideContent()
+                      : _buildMobileContent(),
+                ),
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1360),
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        horizontalPadding,
+                        8,
+                        horizontalPadding,
+                        16,
+                      ),
+                      child: _SecondPageControls(
+                        onNext: onNext,
+                        nextSize: wideLayout ? 68 : 66,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWideContent() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = constraints.maxWidth;
+        final contentWidth = screenWidth.clamp(0.0, 1360.0);
+        final availableHeight = constraints.maxHeight;
+        final panelHeight = availableHeight < 520 ? 520.0 : availableHeight;
+        final horizontalPadding = screenWidth > 1360 ? 40.0 : 0.0;
+        final heroMaxWidth = (contentWidth - horizontalPadding) * 0.55;
+        final heroSize = (panelHeight * 0.88)
+            .clamp(300.0, heroMaxWidth)
+            .clamp(300.0, 650.0)
+            .toDouble();
+
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: availableHeight),
+            child: Center(
+              child: SizedBox(
+                width: contentWidth,
+                height: panelHeight,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 5,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 48),
+                          child: const _SecondPageCopy(desktop: true),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 6,
+                        child: Center(
+                          child: SizedBox.square(
+                            dimension: heroSize,
+                            child: const _SecondPageHero(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMobileContent() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bodyHeight = constraints.maxHeight;
+        final heroSize = (bodyHeight * 0.55)
+            .clamp(0.0, constraints.maxWidth - 48)
+            .toDouble();
+
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: bodyHeight),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    height: heroSize,
+                    child: Center(
+                      child: SizedBox.square(
+                        dimension: heroSize,
+                        child: const _SecondPageHero(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const _SecondPageCopy(desktop: false),
+                  SizedBox(height: bodyHeight > 680 ? 12 : 24),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SecondPageHero extends StatelessWidget {
+  const _SecondPageHero();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2679D7).withOpacity(0.18),
+            blurRadius: 48,
+            spreadRadius: 4,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: Image.asset(
+          'assets/images/ai_candidate_ranking.png',
+          fit: BoxFit.contain,
+        ),
+      ),
+    );
+  }
+}
+
+class _SecondPageCopy extends StatelessWidget {
+  const _SecondPageCopy({required this.desktop});
+
+  final bool desktop;
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final titleFontSize = desktop ? 44.0 : (width * 0.083).clamp(30.0, 36.0);
+    final descriptionFontSize = desktop
+        ? 20.0
+        : (width * 0.043).clamp(16.0, 19.0);
+
+    return Column(
+      mainAxisAlignment: desktop
+          ? MainAxisAlignment.center
+          : MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F3B4B).withOpacity(0.8),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.auto_awesome,
+                  color: Color(0xFF55DDF4),
+                  size: 19,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'AI-POWERED MATCHING',
+                  style: TextStyle(
+                    color: const Color(0xFF48D3F0),
+                    fontSize: desktop ? 14 : 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 18),
+        Text.rich(
+          TextSpan(
+            style: TextStyle(
+              color: const Color(0xFFE6EAF5),
+              fontSize: titleFontSize,
+              height: 1.1,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -1.2,
+            ),
             children: [
-              const SizedBox(height: 12),
-              Expanded(
-                child: Column(
-                  children: [
-                    Expanded(
-                      flex: 56,
-                      child: Center(
-                        child: _OnboardingArtwork(
-                          variant: data.variant,
-                          lightBackground: data.lightBackground,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      flex: 44,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          children: [
-                            Text(
-                              data.title,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 28,
-                                height: 1.18,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(height: 18),
-                            Text(
-                              data.description,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.88),
-                                fontSize: 16,
-                                height: 1.55,
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+              const TextSpan(text: 'Find the '),
+              TextSpan(
+                text: 'Perfect Match.',
+                style: TextStyle(
+                  foreground: Paint()
+                    ..shader = const LinearGradient(
+                      colors: [
+                        Color(0xFF55D7F1),
+                        Color(0xFF8CB8FF),
+                        Color(0xFFB3A3FF),
+                      ],
+                    ).createShader(Rect.fromLTWH(0, 0, width, titleFontSize)),
                 ),
               ),
             ],
           ),
         ),
+        const SizedBox(height: 16),
+        Text(
+          'Intelligent scoring and ranking help connect the right talent with the right opportunities.',
+          style: TextStyle(
+            color: const Color(0xFFD1D9E8),
+            fontSize: descriptionFontSize,
+            height: 1.65,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SecondPageControls extends StatelessWidget {
+  const _SecondPageControls({required this.onNext, required this.nextSize});
+
+  final VoidCallback onNext;
+  final double nextSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Row(
+          children: [
+            for (var index = 0; index < 3; index++) ...[
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                width: index == 1 ? 50 : 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: index == 1 ? null : const Color(0xFF303A49),
+                  gradient: index == 1
+                      ? const LinearGradient(
+                          colors: [Color(0xFF9BC6FF), Color(0xFF48D6F1)],
+                        )
+                      : null,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: index == 1
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFF62C9FF).withOpacity(0.38),
+                            blurRadius: 12,
+                          ),
+                        ]
+                      : null,
+                ),
+              ),
+              if (index < 2) const SizedBox(width: 14),
+            ],
+          ],
+        ),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onNext,
+            customBorder: const CircleBorder(),
+            child: Container(
+              width: nextSize,
+              height: nextSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF55A9FF), Color(0xFF397DE8)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF70A8FF).withOpacity(0.42),
+                    blurRadius: 22,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.arrow_forward_rounded,
+                color: const Color(0xFF07365F),
+                size: nextSize * 0.5,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ThirdOnboardingPage extends StatelessWidget {
+  const _ThirdOnboardingPage({required this.onSkip, required this.onNext});
+
+  final VoidCallback onSkip;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF0D1422), Color(0xFF111C2C), Color(0xFF101B29)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
       ),
+      child: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final wideLayout = constraints.maxWidth >= 900;
+            final horizontalPadding = wideLayout ? 40.0 : 24.0;
+            return Column(
+              children: [
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1360),
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        horizontalPadding,
+                        12,
+                        horizontalPadding,
+                        12,
+                      ),
+                      child: _FirstPageHeader(onSkip: onSkip),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, contentConstraints) {
+                      if (wideLayout) {
+                        final width = contentConstraints.maxWidth;
+                        final availableHeight = contentConstraints.maxHeight;
+                        final contentWidth = width.clamp(0.0, 1360.0);
+                        final panelHeight = availableHeight < 520
+                            ? 520.0
+                            : availableHeight;
+                        final inset = width > 1360 ? 40.0 : 0.0;
+                        final heroLimit = (contentWidth - inset) * 0.55;
+                        final heroSize = (panelHeight * 0.88)
+                            .clamp(300.0, heroLimit)
+                            .clamp(300.0, 650.0)
+                            .toDouble();
+                        return SingleChildScrollView(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: availableHeight,
+                            ),
+                            child: Center(
+                              child: SizedBox(
+                                width: contentWidth,
+                                height: panelHeight,
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: inset,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Expanded(
+                                        flex: 5,
+                                        child: Padding(
+                                          padding: EdgeInsets.only(right: 48),
+                                          child: _ThirdPageCopy(desktop: true),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 6,
+                                        child: Center(
+                                          child: SizedBox.square(
+                                            dimension: heroSize,
+                                            child: const _ThirdPageHero(),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+
+                      final availableHeight = contentConstraints.maxHeight;
+                      final imageSize = (availableHeight * 0.55)
+                          .clamp(0.0, contentConstraints.maxWidth - 48)
+                          .toDouble();
+                      return SingleChildScrollView(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: availableHeight,
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SizedBox(
+                                  height: imageSize,
+                                  child: Center(
+                                    child: SizedBox.square(
+                                      dimension: imageSize,
+                                      child: const _ThirdPageHero(),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                const _ThirdPageCopy(desktop: false),
+                                SizedBox(
+                                  height: availableHeight > 680 ? 12 : 24,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1360),
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        horizontalPadding,
+                        8,
+                        horizontalPadding,
+                        16,
+                      ),
+                      child: _ThirdPageControls(
+                        onNext: onNext,
+                        wideLayout: wideLayout,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _ThirdPageHero extends StatelessWidget {
+  const _ThirdPageHero();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2679D7).withOpacity(0.18),
+            blurRadius: 48,
+            spreadRadius: 4,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: Image.asset(
+          'assets/images/ai_interview_hiring.png',
+          fit: BoxFit.contain,
+        ),
+      ),
+    );
+  }
+}
+
+class _ThirdPageCopy extends StatelessWidget {
+  const _ThirdPageCopy({required this.desktop});
+
+  final bool desktop;
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final titleSize = desktop ? 44.0 : (width * 0.083).clamp(30.0, 36.0);
+    final descriptionSize = desktop ? 20.0 : (width * 0.043).clamp(16.0, 19.0);
+
+    return Column(
+      mainAxisAlignment: desktop
+          ? MainAxisAlignment.center
+          : MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F3B4B).withOpacity(0.8),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.auto_awesome,
+                  color: Color(0xFF55DDF4),
+                  size: 19,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'SEAMLESS HIRING EXPERIENCE',
+                  style: TextStyle(
+                    color: const Color(0xFF48D3F0),
+                    fontSize: desktop ? 14 : 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 18),
+        Text.rich(
+          TextSpan(
+            style: TextStyle(
+              color: const Color(0xFFE6EAF5),
+              fontSize: titleSize,
+              height: 1.1,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -1.2,
+            ),
+            children: [
+              const TextSpan(text: 'From Interview to '),
+              TextSpan(
+                text: 'Hired.',
+                style: TextStyle(
+                  foreground: Paint()
+                    ..shader = const LinearGradient(
+                      colors: [
+                        Color(0xFF55D7F1),
+                        Color(0xFF8CB8FF),
+                        Color(0xFFB3A3FF),
+                      ],
+                    ).createShader(Rect.fromLTWH(0, 0, width, titleSize)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Schedule interviews, track candidates, and make confident hiring decisions with automated AI evaluations—all in one place.',
+          style: TextStyle(
+            color: const Color(0xFFD1D9E8),
+            fontSize: descriptionSize,
+            height: 1.65,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ThirdPageControls extends StatelessWidget {
+  const _ThirdPageControls({required this.onNext, required this.wideLayout});
+
+  final VoidCallback onNext;
+  final bool wideLayout;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Row(
+          children: [
+            for (var index = 0; index < 3; index++) ...[
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                width: index == 2 ? 50 : 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: index == 2 ? null : const Color(0xFF303A49),
+                  gradient: index == 2
+                      ? const LinearGradient(
+                          colors: [Color(0xFF9BC6FF), Color(0xFF48D6F1)],
+                        )
+                      : null,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: index == 2
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFF62C9FF).withOpacity(0.38),
+                            blurRadius: 12,
+                          ),
+                        ]
+                      : null,
+                ),
+              ),
+              if (index < 2) const SizedBox(width: 14),
+            ],
+          ],
+        ),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onNext,
+            borderRadius: BorderRadius.circular(48),
+            child: Ink(
+              padding: EdgeInsets.symmetric(
+                horizontal: wideLayout ? 30 : 24,
+                vertical: wideLayout ? 20 : 18,
+              ),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(48),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF4F98FF), Color(0xFF42D5E9)],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF44B9FF).withOpacity(0.35),
+                    blurRadius: 28,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Get Started',
+                    style: TextStyle(
+                      color: const Color(0xFF07365F),
+                      fontSize: wideLayout ? 22 : 20,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Icon(
+                    Icons.arrow_forward_rounded,
+                    color: const Color(0xFF07365F),
+                    size: wideLayout ? 25 : 23,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FirstOnboardingPage extends StatelessWidget {
+  const _FirstOnboardingPage({required this.onSkip, required this.onNext});
+
+  final VoidCallback onSkip;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF0D1422), Color(0xFF111C2C), Color(0xFF101B29)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -160,
+            right: -140,
+            child: IgnorePointer(
+              child: Container(
+                width: 430,
+                height: 430,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFF315D9D).withOpacity(0.24),
+                      const Color(0xFF315D9D).withOpacity(0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final wideLayout = constraints.maxWidth >= 900;
+                final horizontalPadding = wideLayout ? 40.0 : 24.0;
+
+                return Column(
+                  children: [
+                    Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1360),
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            horizontalPadding,
+                            12,
+                            horizontalPadding,
+                            12,
+                          ),
+                          child: _FirstPageHeader(onSkip: onSkip),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: wideLayout
+                          ? _buildWideContent()
+                          : _buildMobileContent(),
+                    ),
+                    Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1360),
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            horizontalPadding,
+                            8,
+                            horizontalPadding,
+                            16,
+                          ),
+                          child: _FirstPageControls(
+                            onNext: onNext,
+                            nextSize: wideLayout ? 68 : 66,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWideContent() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = constraints.maxWidth;
+        final contentWidth = screenWidth.clamp(0.0, 1360.0);
+        final contentHeight = constraints.maxHeight;
+        final panelHeight = contentHeight < 520 ? 520.0 : contentHeight;
+        final horizontalPadding = screenWidth > 1360 ? 40.0 : 0.0;
+        final heroMaxWidth = (contentWidth - horizontalPadding) * 0.52;
+        final heroSize = (panelHeight * 0.88)
+            .clamp(300.0, heroMaxWidth)
+            .clamp(300.0, 600.0)
+            .toDouble();
+
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: contentHeight),
+            child: Center(
+              child: SizedBox(
+                width: contentWidth,
+                height: panelHeight,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 5,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 48),
+                          child: _FirstPageCopy(
+                            width: contentWidth * 0.42,
+                            desktop: true,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 6,
+                        child: Center(
+                          child: SizedBox.square(
+                            dimension: heroSize,
+                            child: const _FirstPageHero(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMobileContent() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final bodyHeight = constraints.maxHeight;
+        final heroSize = (bodyHeight * 0.55).clamp(0.0, width - 48).toDouble();
+
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: bodyHeight),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    height: heroSize,
+                    child: Center(
+                      child: SizedBox.square(
+                        dimension: heroSize,
+                        child: const _FirstPageHero(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  _FirstPageCopy(width: width - 48, desktop: false),
+                  SizedBox(height: bodyHeight > 680 ? 12 : 24),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _FirstPageHeader extends StatelessWidget {
+  const _FirstPageHeader({required this.onSkip});
+
+  final VoidCallback onSkip;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final iconSize = constraints.maxWidth < 360 ? 44.0 : 50.0;
+
+        return Row(
+          children: [
+            Container(
+              width: iconSize,
+              height: iconSize,
+              decoration: BoxDecoration(
+                color: const Color(0xFF293D53),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(
+                Icons.hub_rounded,
+                color: const Color(0xFF54D7F3),
+                size: iconSize * 0.61,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'AI Resume Ranking',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: const Color(0xFFF3F5FC),
+                  fontSize: constraints.maxWidth >= 900 ? 22 : 20,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.5,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            TextButton(
+              onPressed: onSkip,
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFFE0E7F5),
+                backgroundColor: Colors.white.withOpacity(0.07),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
+                shape: const StadiumBorder(),
+                textStyle: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              child: const Text('Skip'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _FirstPageHero extends StatelessWidget {
+  const _FirstPageHero();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2679D7).withOpacity(0.18),
+            blurRadius: 48,
+            spreadRadius: 4,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: Image.asset(
+          'assets/images/resume_ai_scanning.png',
+          fit: BoxFit.contain,
+        ),
+      ),
+    );
+  }
+}
+
+class _FirstPageCopy extends StatelessWidget {
+  const _FirstPageCopy({required this.width, required this.desktop});
+
+  final double width;
+  final bool desktop;
+
+  @override
+  Widget build(BuildContext context) {
+    final titleFontSize = desktop ? 46.0 : (width * 0.083).clamp(30.0, 36.0);
+    final descriptionFontSize = desktop
+        ? 20.0
+        : (width * 0.043).clamp(16.0, 19.0);
+
+    return Column(
+      mainAxisAlignment: desktop
+          ? MainAxisAlignment.center
+          : MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.auto_awesome, color: Color(0xFF55DDF4), size: 22),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Text(
+                'INTELLIGENT RECRUITMENT',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: const Color(0xFF48D3F0),
+                  fontSize: desktop ? 15 : 14,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: desktop ? 2.0 : 1.6,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Text.rich(
+          TextSpan(
+            style: TextStyle(
+              color: const Color(0xFFE6EAF5),
+              fontSize: titleFontSize,
+              height: 1.08,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -1.2,
+            ),
+            children: [
+              const TextSpan(text: 'Your Career, '),
+              TextSpan(
+                text: 'Smarter.',
+                style: TextStyle(
+                  foreground: Paint()
+                    ..shader = const LinearGradient(
+                      colors: [
+                        Color(0xFF87C9FF),
+                        Color(0xFF5ACAF3),
+                        Color(0xFFB3A3FF),
+                      ],
+                    ).createShader(Rect.fromLTWH(0, 0, width, titleFontSize)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Let AI uncover your potential and connect you with opportunities that truly match.',
+          style: TextStyle(
+            color: const Color(0xFFD1D9E8),
+            fontSize: descriptionFontSize,
+            height: 1.65,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FirstPageControls extends StatelessWidget {
+  const _FirstPageControls({required this.onNext, required this.nextSize});
+
+  final VoidCallback onNext;
+  final double nextSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 50,
+              height: 14,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF9BC6FF), Color(0xFF48D6F1)],
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF62C9FF).withOpacity(0.38),
+                    blurRadius: 12,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 14),
+            for (var index = 0; index < 2; index++) ...[
+              Container(
+                width: 14,
+                height: 14,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF303A49),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              if (index == 0) const SizedBox(width: 14),
+            ],
+          ],
+        ),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onNext,
+            customBorder: const CircleBorder(),
+            child: Container(
+              width: nextSize,
+              height: nextSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF8CB8FF), Color(0xFF347FE1)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF70A8FF).withOpacity(0.42),
+                    blurRadius: 22,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.arrow_forward_rounded,
+                color: Colors.white,
+                size: nextSize * 0.5,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -1,7 +1,7 @@
 import re
 from collections.abc import Sequence
 from datetime import date
-from typing import TypedDict
+from typing_extensions import TypedDict
 
 from app.services.dataset_resources import load_terms
 
@@ -79,8 +79,8 @@ _EDUCATION_YEAR_RANGE = re.compile(
 )
 _GENERIC_LEVELS = (
     ("doctorate", re.compile(r"\b(?:doctorate|doctoral|ph\.?d\.?)\b", re.IGNORECASE)),
-    ("master", re.compile(r"\b(?:master(?:'s)?|postgraduate)\b", re.IGNORECASE)),
-    ("bachelor", re.compile(r"\b(?:bachelor(?:'s)?|undergraduate)\b", re.IGNORECASE)),
+    ("master", re.compile(r"\b(?:master(?:'s|s)?|postgraduate)\b", re.IGNORECASE)),
+    ("bachelor", re.compile(r"\b(?:bachelor(?:'s|s)?|undergraduate)\b", re.IGNORECASE)),
     ("higher_secondary", re.compile(r"\b(?:higher\s+secondary|intermediate|HSSC)\b", re.IGNORECASE)),
     ("secondary", re.compile(r"\b(?:secondary|matriculation|matric|SSC)\b", re.IGNORECASE)),
 )
@@ -132,14 +132,16 @@ _FIELD_PATTERNS = tuple(
 )
 
 
-def _find_degree_mentions(text: str) -> list[tuple[str, str, str | None]]:
+def _find_degree_mentions_with_spans(
+    text: str,
+) -> list[tuple[str, str, str | None, int, int]]:
     matches: list[tuple[int, int, str, str, str | None]] = []
     for pattern, canonical, level, field in _DEGREE_PATTERNS:
         for match in pattern.finditer(text):
             matches.append((match.start(), match.end(), canonical, level, field))
     matches.sort(key=lambda item: (item[0], -(item[1] - item[0])))
 
-    results: list[tuple[str, str, str | None]] = []
+    results: list[tuple[str, str, str | None, int, int]] = []
     occupied_until = -1
     seen: set[str] = set()
     for start, end, canonical, level, field in matches:
@@ -148,8 +150,15 @@ def _find_degree_mentions(text: str) -> list[tuple[str, str, str | None]]:
         occupied_until = end
         if canonical.casefold() not in seen:
             seen.add(canonical.casefold())
-            results.append((canonical, level, field))
+            results.append((canonical, level, field, start, end))
     return results
+
+
+def _find_degree_mentions(text: str) -> list[tuple[str, str, str | None]]:
+    return [
+        (degree, level, field)
+        for degree, level, field, _, _ in _find_degree_mentions_with_spans(text)
+    ]
 
 
 def _find_fields(text: str) -> list[str]:
@@ -186,7 +195,11 @@ def _candidate_qualifications(
 ) -> list[dict[str, str | None]]:
     qualifications: list[dict[str, str | None]] = []
     for text in _education_texts(education):
-        degrees = _find_degree_mentions(text)
+        degree_mentions = _find_degree_mentions_with_spans(text)
+        degrees = [
+            (degree, level, field)
+            for degree, level, field, _, _ in degree_mentions
+        ]
         generic_level = next(
             (level for level, pattern in _GENERIC_LEVELS if pattern.search(text)),
             None,
@@ -204,8 +217,21 @@ def _candidate_qualifications(
         status = "in_progress" if in_progress else "completed"
 
         if degrees:
-            for degree, level, degree_field in degrees:
-                fields = explicit_fields or ([degree_field] if degree_field else [])
+            for index, (degree, level, degree_field) in enumerate(degrees):
+                _, _, _, start, end = degree_mentions[index]
+                previous_end = degree_mentions[index - 1][4] if index else 0
+                next_start = (
+                    degree_mentions[index + 1][3]
+                    if index + 1 < len(degree_mentions)
+                    else len(text)
+                )
+                fields = _find_fields(text[end:next_start])
+                if not fields:
+                    fields = _find_fields(text[max(previous_end, start - 80):start])
+                if not fields and len(degrees) == 1:
+                    fields = explicit_fields
+                if not fields and degree_field:
+                    fields = [degree_field]
                 qualifications.append(
                     {
                         "degree": degree,

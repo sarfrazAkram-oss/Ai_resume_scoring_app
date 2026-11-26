@@ -1,4 +1,4 @@
-"""Leakage-controlled binary screening experiment; not production ranking."""
+"""Offline binary screening experiment; not production ranking."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 from sklearn.compose import ColumnTransformer
+from sklearn.dummy import DummyClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
@@ -38,6 +39,28 @@ EXPECTED_FEATURES = {
     "resume_length",
     "github_activity",
 }
+FEATURE_COMPATIBILITY = {
+    "years_experience": (
+        "Approximate only: live experience entries can yield candidateYears, but "
+        "the dataset's source calculation and units are undocumented."
+    ),
+    "education_level": (
+        "Partial only: live education parsing provides degree/level; dataset "
+        "categories and qualification-selection rules are not equivalent by definition."
+    ),
+    "project_count": (
+        "Partial only: live projects can be counted, but project extraction is "
+        "incomplete and the dataset's counting definition is undocumented."
+    ),
+    "resume_length": (
+        "Incompatible until defined: live text length can be measured, but the "
+        "dataset unit and preprocessing definition are undocumented."
+    ),
+    "github_activity": (
+        "Unavailable: live resume parsing does not extract a defined GitHub "
+        "activity metric; do not infer activity from a URL or mention."
+    ),
+}
 
 
 def _find_dataset() -> tuple[Path, str]:
@@ -62,6 +85,12 @@ def _prepare(frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series, list[str], l
     frame.columns = [str(column).strip() for column in frame.columns]
     if TARGET not in frame.columns:
         raise ValueError(f"Missing target column: {TARGET}")
+    missing_features = EXPECTED_FEATURES.difference(frame.columns)
+    if missing_features:
+        raise ValueError(
+            "Missing expected training feature columns: "
+            + ", ".join(sorted(missing_features))
+        )
 
     available_features = [
         column for column in frame.columns
@@ -104,7 +133,7 @@ def _build_preprocessor(numeric_features: list[str], categorical_features: list[
     )
 
 
-def _metrics(model: Pipeline, x_test: pd.DataFrame, y_test: pd.Series) -> dict[str, object]:
+def _metrics(model: Pipeline | DummyClassifier, x_test: pd.DataFrame, y_test: pd.Series) -> dict[str, object]:
     predictions = model.predict(x_test)
     probabilities = model.predict_proba(x_test)[:, 1]
     return {
@@ -115,6 +144,25 @@ def _metrics(model: Pipeline, x_test: pd.DataFrame, y_test: pd.Series) -> dict[s
         "roc_auc": round(float(roc_auc_score(y_test, probabilities)), 4),
         "confusion_matrix": confusion_matrix(y_test, predictions).tolist(),
     }
+
+
+def _feature_distributions(frame: pd.DataFrame, features: list[str]) -> dict[str, str]:
+    summaries: dict[str, str] = {}
+    for feature in features:
+        values = frame[feature]
+        if feature == "education_level":
+            counts = values.fillna("<missing>").value_counts().sort_index()
+            summaries[feature] = "; ".join(
+                f"{category}: {count}" for category, count in counts.items()
+            )
+        else:
+            numeric = pd.to_numeric(values, errors="coerce")
+            summaries[feature] = (
+                f"numeric-like; missing={int(numeric.isna().sum())}; "
+                f"min={numeric.min():g}; median={numeric.median():g}; "
+                f"max={numeric.max():g}"
+            )
+    return summaries
 
 
 def _feature_interpretation(model: Pipeline, numeric_features: list[str], categorical_features: list[str]) -> list[dict[str, object]]:
@@ -136,7 +184,7 @@ def _markdown(data: dict[str, object]) -> str:
     lines = [
         "# ML Screening Experiment",
         "",
-        "This is a leakage-controlled binary classification experiment, not the production Resume Ranking Engine.",
+        "This is an offline historical-label classification experiment, not the production Resume Ranking Engine.",
         "",
         "## 1. Experiment Objective",
         "",
@@ -160,7 +208,7 @@ def _markdown(data: dict[str, object]) -> str:
         "",
         "## 6. Leakage Analysis",
         "",
-        "`skills_match_score` was excluded because it is a precomputed match-like feature and can circularly encode the shortlist decision. No other direct outcome/match field was used.",
+        "`skills_match_score` was excluded because it is a precomputed match-like feature and can circularly encode the shortlist decision. No other direct outcome/match field was used. The dataset does not document label-generation provenance, so indirect or proxy leakage cannot be ruled out.",
         "",
         "## 7. Excluded Features",
         "",
@@ -170,9 +218,23 @@ def _markdown(data: dict[str, object]) -> str:
         "",
         ", ".join(f"`{feature}`" for feature in data["features_used"]),
         "",
+        "### Dataset distributions and live-parser compatibility",
+        "",
+        "| Feature | Dataset distribution | Live resume feature compatibility |",
+        "|---|---|---|",
+        *[
+            f"| `{feature}` | {data['feature_distributions'][feature]} | "
+            f"{FEATURE_COMPATIBILITY[feature]} |"
+            for feature in data["features_used"]
+        ],
+        "",
+        "These are feature-schema comparisons, not proof that the live parser produces equivalent values. "
+        "`skills_match_score` is excluded as leakage risk; the target is never a feature.",
+        "",
         "## 9. Data Cleaning",
         "",
-        "Numeric columns were coercively parsed with invalid values becoming missing; numeric missing values use training-set medians. `education_level` is one-hot encoded with a training-fitted most-frequent imputer. The target accepts only Yes/No; duplicate rows were checked and no exact duplicates were found.",
+        "Numeric columns were coercively parsed with invalid values becoming missing; numeric missing values use training-set medians. `education_level` is one-hot encoded with a training-fitted most-frequent imputer. The target accepts only Yes/No. "
+        f"Source rows={data['source_rows']}; rows with valid labels={data['rows']}; invalid-label rows excluded={data['invalid_target_rows']}; exact duplicate rows={data['duplicate_rows']}.",
         "",
         "## 10. Train/Test Split",
         "",
@@ -183,10 +245,21 @@ def _markdown(data: dict[str, object]) -> str:
         f"Yes={data['target_distribution']['Yes']} ({data['positive_rate']}%), No={data['target_distribution']['No']} ({data['negative_rate']}%). Accuracy is therefore not sufficient by itself; precision, recall, F1, ROC-AUC, and the confusion matrix are reported.",
         "",
     ]
+    baseline = data["majority_baseline"]
+    lines.extend([
+        "## 12. Majority-Class Baseline",
+        "",
+        f"Predicts the training majority class (`{data['majority_class']}`) for every test row. "
+        f"Accuracy={baseline['accuracy']}, Precision={baseline['precision']}, "
+        f"Recall={baseline['recall']}, F1={baseline['f1']}.",
+        "",
+        f"Confusion matrix `[[TN, FP], [FN, TP]]`: `{baseline['confusion_matrix']}`",
+        "",
+    ])
     for model_name in ("Logistic Regression", "Random Forest"):
         result = data["models"][model_name]
         lines.extend([
-            f"## {12 if model_name == 'Logistic Regression' else 13}. {model_name} Results",
+            f"## {13 if model_name == 'Logistic Regression' else 14}. {model_name} Results",
             "",
             f"Accuracy={result['metrics']['accuracy']}, Precision={result['metrics']['precision']}, Recall={result['metrics']['recall']}, F1={result['metrics']['f1']}, ROC-AUC={result['metrics']['roc_auc']}",
             "",
@@ -198,21 +271,35 @@ def _markdown(data: dict[str, object]) -> str:
             "",
         ])
     lines.extend([
-        "## 17. Model Comparison",
+        "## 15. Model Comparison",
         "",
-        "The metrics above compare two interpretable baselines on the same held-out stratified test set. No model selection was promoted to production.",
+        "The classifiers and majority baseline use the same held-out stratified test set. "
+        "Model comparison is limited to this historical classification task; no model is promoted to production.",
         "",
-        "## 18. Limitations",
+        "## 16. Limitations",
         "",
-        "The dataset contains engineered candidate-side features rather than resume/job pairs. It does not test recruiter-created requirements, text extraction, domain relevance, project evidence, or the production /100 score. The shortlist label may reflect an unknown historical process.",
+        "The dataset contains engineered candidate-side features rather than resume/job pairs. "
+        "Feature source definitions and units are undocumented. GitHub activity is not extracted "
+        "by the live parser; resume length units and project-count semantics cannot be confirmed. "
+        "It does not test recruiter-created requirements, text extraction, domain relevance, "
+        "project evidence, or the production /100 score. The shortlist label may reflect an unknown historical process.",
         "",
-        "## 19. Relationship to the Existing /100 Resume Ranking Engine",
+        "## 17. Relationship to the Existing /100 Resume Ranking Engine",
         "",
         "The deterministic engine and its 40/25/20/15 weights were not modified. This experiment is isolated and does not write scores, shortlist candidates, call Flutter, or connect to Firestore/Supabase.",
         "",
-        "## 20. Final Conclusion",
+        "## 18. Ranking labels needed",
         "",
-        "This experiment measures how two simple classifiers model the supplied historical screening labels without the explicitly precomputed match feature. It does not prove accuracy for recruiter-job matching and must not replace the deterministic production score.",
+        "To evaluate job-specific ranking, collect recruiter-judged relevance for each job–resume pair "
+        "(for example, graded relevance levels with a documented rubric), including multiple candidates "
+        "per job. Keep jobs/candidates separated between training and test. Then report NDCG@K and "
+        "Precision@K (and optionally Recall@K/MAP) against those held-out judgments.",
+        "",
+        "## 19. Readiness",
+        "",
+        "Not ready for live integration: the current features cannot all be reliably reproduced from "
+        "live resumes and the historical `shortlisted` label is not job-specific relevance. "
+        "The experiment measures historical shortlisting classification only, not CV-ranking quality.",
         "",
     ])
     return "\n".join(lines)
@@ -220,6 +307,8 @@ def _markdown(data: dict[str, object]) -> str:
 
 def run_experiment() -> dict[str, object]:
     frame, archive, member = _load_data()
+    source_rows = len(frame)
+    duplicate_rows = int(frame.duplicated().sum())
     x, y, numeric_features, categorical_features = _prepare(frame)
     x_train, x_test, y_train, y_test = train_test_split(
         x, y, test_size=0.2, random_state=SEED, stratify=y
@@ -244,15 +333,25 @@ def run_experiment() -> dict[str, object]:
             "interpretation": _feature_interpretation(pipeline, numeric_features, categorical_features),
         }
 
+    majority_classifier = DummyClassifier(strategy="most_frequent")
+    majority_classifier.fit(x_train, y_train)
+    majority_class = int(majority_classifier.classes_[majority_classifier.class_prior_.argmax()])
+    majority_metrics = _metrics(majority_classifier, x_test, y_test)
     target_distribution = {"Yes": int((y == 1).sum()), "No": int((y == 0).sum())}
     result = {
         "archive": archive.name,
         "member": member,
+        "source_rows": source_rows,
+        "duplicate_rows": duplicate_rows,
+        "invalid_target_rows": source_rows - len(y),
         "rows": len(x),
         "features_used": list(x.columns),
+        "feature_distributions": _feature_distributions(x, list(x.columns)),
         "train_rows": len(x_train),
         "test_rows": len(x_test),
         "target_distribution": target_distribution,
+        "majority_class": "Yes" if majority_class == 1 else "No",
+        "majority_baseline": majority_metrics,
         "positive_rate": round(target_distribution["Yes"] / len(y) * 100, 3),
         "negative_rate": round(target_distribution["No"] / len(y) * 100, 3),
         "models": model_results,

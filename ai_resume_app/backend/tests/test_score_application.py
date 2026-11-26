@@ -9,6 +9,8 @@ from app.main import (
     app,
     download_resume_for_scoring,
     initialize_firebase_admin,
+    fetch_job_for_scoring,
+    normalize_job_scoring_policy,
     persist_application_score,
     score_resume,
     verify_firebase_token,
@@ -28,6 +30,33 @@ class ScoreApplicationEndpointTests(unittest.TestCase):
         )
         self.firestore_client_patcher.start()
         self.addCleanup(self.firestore_client_patcher.stop)
+
+    @patch(
+        "app.main.extract_resume_text",
+        return_value=(
+            "docx",
+            "EXPERIENCE\n"
+            "Flutter Developer at Acme 2020 - 2022\n"
+            "- Build applications with Flutter.\n",
+        ),
+    )
+    def test_structured_extraction_endpoint_serializes_employment_evidence(
+        self,
+        _mock_extract: Mock,
+    ) -> None:
+        response = self.client.post(
+            "/extract-resume-structured",
+            files={"file": ("resume.docx", b"document bytes")},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        structured = response.json()["structured"]
+        self.assertEqual(structured["experience"][0]["text"],
+                         "Flutter Developer at Acme 2020 - 2022")
+        self.assertEqual(
+            structured["employmentEvidence"][0]["title"],
+            "Flutter Developer",
+        )
 
     @patch.dict(
         "os.environ",
@@ -77,6 +106,58 @@ class ScoreApplicationEndpointTests(unittest.TestCase):
             headers={"Authorization": "Bearer valid-token"},
         )
         self.assertEqual(response.status_code, 404)
+
+    @patch("app.main.verify_firebase_token", return_value="candidate-1")
+    @patch("app.main.fetch_application_for_scoring")
+    def test_existing_score_requires_explicit_rescore_confirmation(
+        self,
+        mock_fetch: Mock,
+        _mock_verify: Mock,
+    ) -> None:
+        mock_fetch.return_value = {
+            "score": 53.33,
+            "candidateId": "candidate-1",
+        }
+
+        response = self.client.post(
+            "/score-application",
+            json={"applicationId": "app-1"},
+            headers={"Authorization": "******"},
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("explicit confirmation", response.json()["detail"])
+        self.mock_persist_scoring_status.assert_not_called()
+
+    @patch("app.main.verify_firebase_token", return_value="candidate-1")
+    @patch(
+        "app.main.score_application_for_application",
+        return_value={
+            "applicationId": "app-1",
+            "score": 80.0,
+            "scoreBreakdown": {},
+            "scoringStatus": "scored",
+            "scoredAt": None,
+            "scoringModelVersion": 3,
+        },
+    )
+    def test_endpoint_passes_explicit_rescore_confirmation(
+        self,
+        mock_score: Mock,
+        _mock_verify: Mock,
+    ) -> None:
+        response = self.client.post(
+            "/score-application",
+            json={"applicationId": "app-1", "confirmRescore": True},
+            headers={"Authorization": "******"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        mock_score.assert_called_once_with(
+            "app-1",
+            "candidate-1",
+            confirm_rescore=True,
+        )
 
     @patch("app.main.verify_firebase_token", return_value="candidate-2")
     @patch("app.main.fetch_application_for_scoring")
@@ -227,6 +308,7 @@ class ScoreApplicationEndpointTests(unittest.TestCase):
                 "projectsMax": 15,
             },
             "scoringStatus": "scored",
+            "scoringModelVersion": 3,
         }
         response = self.client.post(
             "/score-application",
@@ -236,7 +318,86 @@ class ScoreApplicationEndpointTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["score"], 100.0)
         self.assertEqual(response.json()["scoringStatus"], "scored")
+        self.assertEqual(
+            set(response.json()),
+            {
+                "applicationId",
+                "score",
+                "scoreBreakdown",
+                "scoringStatus",
+                "scoredAt",
+                "scoringModelVersion",
+            },
+        )
         self.mock_persist_scoring_status.assert_called_once_with("app-1", "scoring")
+        mock_persist.assert_called_once()
+        self.assertEqual(
+            mock_persist.call_args.kwargs,
+            {"scoring_model_version": 3, "job_id": "job-1"},
+        )
+
+    def test_fetch_job_loads_saved_version_two_policy(self) -> None:
+        job_data = {
+            "title": "Developer",
+            "description": "Build software",
+            "requiredSkills": "Python",
+            "requiredExperience": "2 years",
+            "requiredEducation": "BSCS",
+            "scoringPolicyVersion": 2,
+            "jobType": "experienced",
+            "skillsRequirement": "required",
+            "experienceRequirement": "required",
+            "experienceYears": 2.0,
+            "educationRequirement": "preferred",
+            "projectsRequirement": "not_applicable",
+            "projectCriteria": "",
+        }
+        snapshot = Mock()
+        snapshot.exists = True
+        snapshot.to_dict.return_value = job_data
+        self.mock_firestore_client.collection.return_value.document.return_value.get.return_value = snapshot
+
+        job = fetch_job_for_scoring("job-1")
+
+        self.assertEqual(job["scoringPolicyVersion"], 2)
+        self.assertEqual(job["experienceYears"], 2.0)
+        self.assertEqual(job["projectsRequirement"], "not_applicable")
+        self.assertEqual(job["requiredSkills"], "Python")
+        self.assertEqual(job["requiredEducation"], "BSCS")
+
+    def test_legacy_job_remains_on_legacy_scoring_path(self) -> None:
+        snapshot = Mock()
+        snapshot.exists = True
+        snapshot.to_dict.return_value = {
+            "title": "Legacy job",
+            "requirements": "Python",
+            "requiredExperience": "2 years",
+            "requiredEducation": "BSCS",
+        }
+        self.mock_firestore_client.collection.return_value.document.return_value.get.return_value = snapshot
+
+        job = fetch_job_for_scoring("legacy-job")
+
+        self.assertNotIn("scoringPolicyVersion", job)
+        self.assertEqual(normalize_job_scoring_policy(job), {})
+        self.assertEqual(job["requiredSkills"], "Python")
+
+    def test_invalid_version_two_policy_is_rejected(self) -> None:
+        with self.assertRaises(HTTPException) as raised:
+            normalize_job_scoring_policy(
+                {
+                    "scoringPolicyVersion": 2,
+                    "skillsRequirement": "required",
+                    "experienceRequirement": "required",
+                    "experienceYears": 0,
+                    "educationRequirement": "required",
+                    "projectsRequirement": "not_applicable",
+                    "requiredSkills": "Python",
+                    "requiredEducation": "BSCS",
+                }
+            )
+
+        self.assertEqual(raised.exception.status_code, 400)
 
     @patch("app.main.verify_firebase_token", return_value="candidate-1")
     @patch("app.main.fetch_application_for_scoring")
@@ -290,6 +451,10 @@ class ScoreApplicationEndpointTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         mock_persist.assert_called_once()
+        self.assertEqual(
+            mock_persist.call_args.kwargs,
+            {"scoring_model_version": 3, "job_id": "job-1"},
+        )
 
     @patch("app.main.verify_firebase_token", return_value="candidate-1")
     @patch("app.main.fetch_application_for_scoring")
@@ -354,10 +519,87 @@ class ScoreApplicationEndpointTests(unittest.TestCase):
         self.assertEqual(result["earnedScore"], 100.0)
 
     def test_success_response_timestamp_is_serializable(self) -> None:
-        payload = persist_application_score("app-1", 87.5, {"finalScore": 87.5})
+        snapshot = Mock()
+        snapshot.exists = True
+        snapshot.to_dict.return_value = {}
+        self.mock_firestore_client.collection.return_value.document.return_value.get.return_value = snapshot
+        transaction = Mock()
+        self.mock_firestore_client.transaction.return_value = transaction
+
+        with patch("app.main.admin_firestore.transactional", side_effect=lambda fn: fn):
+            payload = persist_application_score(
+                "app-1",
+                87.5,
+                {"finalScore": 87.5},
+                scoring_model_version=3,
+            )
 
         self.assertEqual(payload["scoringStatus"], "scored")
+        self.assertEqual(payload["scoringModelVersion"], 3)
         self.assertIsInstance(datetime.fromisoformat(payload["scoredAt"]), datetime)
+        transaction.set.assert_called_once()
+
+    def test_rescoring_archives_existing_score_without_changing_review_fields(self) -> None:
+        old_scored_at = datetime(2026, 11, 5)
+        snapshot = Mock()
+        snapshot.exists = True
+        snapshot.to_dict.return_value = {
+            "score": 40.0,
+            "scoreBreakdown": {"finalScore": 40.0},
+            "scoringModelVersion": None,
+            "scoredAt": old_scored_at,
+            "reviewStatus": "Pending",
+        }
+        document = self.mock_firestore_client.collection.return_value.document.return_value
+        document.get.return_value = snapshot
+        transaction = Mock()
+        self.mock_firestore_client.transaction.return_value = transaction
+
+        with patch("app.main.admin_firestore.transactional", side_effect=lambda fn: fn):
+            payload = persist_application_score(
+                "app-1",
+                82.0,
+                {"finalScore": 82.0},
+                scoring_model_version=3,
+            )
+
+        saved = transaction.set.call_args.args[1]
+        self.assertEqual(saved["scoringHistory"][0]["score"], 40.0)
+        self.assertIsNone(saved["scoringHistory"][0]["scoringModelVersion"])
+        self.assertEqual(saved["scoringHistory"][0]["scoredAt"], old_scored_at)
+        self.assertEqual(payload["score"], 82.0)
+        self.assertNotIn("reviewStatus", saved)
+
+    def test_mixed_version_job_cohort_blocks_score_update(self) -> None:
+        snapshot = Mock()
+        snapshot.exists = True
+        snapshot.to_dict.return_value = {}
+        document = self.mock_firestore_client.collection.return_value.document.return_value
+        document.get.return_value = snapshot
+        other = Mock()
+        other.id = "other-application"
+        other.to_dict.return_value = {
+            "score": 55.0,
+            "scoringModelVersion": None,
+        }
+        self.mock_firestore_client.collection.return_value.where.return_value.stream.return_value = [
+            other
+        ]
+        transaction = Mock()
+        self.mock_firestore_client.transaction.return_value = transaction
+
+        with patch("app.main.admin_firestore.transactional", side_effect=lambda fn: fn):
+            with self.assertRaises(HTTPException) as raised:
+                persist_application_score(
+                    "app-1",
+                    82.0,
+                    {"finalScore": 82.0},
+                    scoring_model_version=3,
+                    job_id="job-1",
+                )
+
+        self.assertEqual(raised.exception.status_code, 409)
+        transaction.set.assert_not_called()
 
 
 class ResumeDownloadTests(unittest.TestCase):

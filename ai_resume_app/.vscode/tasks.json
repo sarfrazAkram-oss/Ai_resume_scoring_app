@@ -1,0 +1,31 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Backend",
+			"type": "shell",
+			"command": "Set-Location 'C:\\Users\\HP\\Desktop\\rsume scoring\\ai_resume_app\\backend'; & '..\\.venv\\Scripts\\python.exe' -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000",
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "Flutter Web Server",
+			"type": "shell",
+			"command": "flutter",
+			"args": [
+				"run",
+				"-d",
+				"web-server",
+				"--web-hostname",
+				"127.0.0.1",
+				"--web-port",
+				"49395",
+				"--dart-define=SUPABASE_URL=https://wovpyckxjbieqzbhdmlk.supabase.co",
+				"--dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_sVfy-P7RyuGBN5cpO4jT9Q_v1gIVoeD",
+				"--dart-define=BACKEND_URL=http://127.0.0.1:8000"
+			],
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}

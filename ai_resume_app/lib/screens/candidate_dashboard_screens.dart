@@ -1,12 +1,11 @@
 import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../services/firestore_service.dart';
 import '../services/backend_api_service.dart';
+import '../services/firestore_service.dart';
 import 'local_resume_store.dart';
 
 class AvailableJobsScreen extends StatelessWidget {
@@ -135,7 +134,6 @@ class _ResumeUploadScreenState extends State<ResumeUploadScreen> {
   PlatformFile? _selectedFile;
   bool _isAnalyzing = false;
   String? _analysisMessage;
-  ResumeScoreBreakdown? _breakdown;
 
   Future<void> _pickResume() async {
     final selection = await showDialog<_ResumeSelectionType>(
@@ -194,7 +192,6 @@ class _ResumeUploadScreenState extends State<ResumeUploadScreen> {
     setState(() {
       _selectedFile = pickedFile;
       _analysisMessage = null;
-      _breakdown = null;
     });
   }
 
@@ -206,7 +203,6 @@ class _ResumeUploadScreenState extends State<ResumeUploadScreen> {
     setState(() {
       _selectedFile = null;
       _analysisMessage = null;
-      _breakdown = null;
     });
   }
 
@@ -226,16 +222,11 @@ class _ResumeUploadScreenState extends State<ResumeUploadScreen> {
     setState(() {
       _isAnalyzing = true;
       _analysisMessage = 'Uploading resume and submitting application...';
-      _breakdown = null;
     });
 
     late final String applicationId;
     try {
-      final user = FirebaseAuth.instance.currentUser;
       debugPrint('=== APPLICATION SUBMIT START ===');
-      debugPrint('Application submit auth uid: ${user?.uid}');
-      debugPrint('Application submit auth email: ${user?.email}');
-      debugPrint('Application submit jobId: ${widget.job.id}');
       applicationId = await FirestoreService.createApplication(
         job: widget.job,
         resumeFileName: _selectedFile!.name,
@@ -274,7 +265,6 @@ class _ResumeUploadScreenState extends State<ResumeUploadScreen> {
       _analysisMessage = scoringSucceeded
           ? 'Application submitted successfully.'
           : 'Application submitted, but resume scoring could not be completed.';
-      _breakdown = null;
     });
   }
 
@@ -364,31 +354,6 @@ class _ResumeUploadScreenState extends State<ResumeUploadScreen> {
                 style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
               ),
             ],
-            if (_breakdown != null) ...[
-              const SizedBox(height: 12),
-              _ResultLine(
-                label: 'Skills Score',
-                value: '${_breakdown!.skillsScore}%',
-              ),
-              _ResultLine(
-                label: 'Experience Score',
-                value: '${_breakdown!.experienceScore}%',
-              ),
-              _ResultLine(
-                label: 'Education Score',
-                value: '${_breakdown!.educationScore}%',
-              ),
-              _ResultLine(
-                label: 'Projects Score',
-                value: '${_breakdown!.projectsScore}%',
-              ),
-              const SizedBox(height: 12),
-              _ResultLine(
-                label: 'Final Resume Score',
-                value: '${_breakdown!.finalScore}%',
-              ),
-              _ResultLine(label: 'Application Status', value: 'Applied'),
-            ],
           ],
         ),
       ),
@@ -473,6 +438,7 @@ class _ApplicationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final application = this.application;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -491,9 +457,50 @@ class _ApplicationCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text('Resume Score: ${application.resumeScore ?? 'Pending'}'),
           Text('Current Status: ${application.status}'),
           Text('Application Date: ${_formatDate(application.submittedAt)}'),
+          if (!application.scoreShared)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text(
+                'Your resume is being reviewed. Your score is not available yet.',
+              ),
+            ),
+          if (application.scoreShared && application.resumeScore != null) ...[
+            const SizedBox(height: 8),
+            const Text('Your recruiter has shared your resume score.'),
+            Text(
+              'Final score: ${application.resumeScore!.toStringAsFixed(0)} / 100',
+            ),
+            if (application.breakdown != null) ...[
+              Text(
+                'Skills: ${application.breakdown!.skillsScore?.toStringAsFixed(0) ?? '0'} / ${application.breakdown!.skillsMax ?? 40}',
+              ),
+              Text(
+                'Experience: ${application.breakdown!.experienceScore?.toStringAsFixed(0) ?? '0'} / ${application.breakdown!.experienceMax ?? 25}',
+              ),
+              Text(
+                'Education: ${application.breakdown!.educationScore?.toStringAsFixed(0) ?? '0'} / ${application.breakdown!.educationMax ?? 20}',
+              ),
+              Text(
+                'Practical Work & Achievements: ${application.breakdown!.practicalWorkScore?.toStringAsFixed(0) ?? '0'} / ${application.breakdown!.practicalWorkMax ?? 15}',
+              ),
+            ],
+          ],
+          if (application.status == 'Pending' ||
+              application.status == 'Under Review')
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text(
+                'Your application is being reviewed by our recruitment team.',
+              ),
+            ),
+          if (application.status == 'Rejected') ...[
+            const SizedBox(height: 8),
+            const Text(
+              'Thank you for your interest in this position and for taking the time to apply. After careful consideration, we regret to inform you that your application has not been selected to move forward. We sincerely appreciate your interest and wish you every success in your future opportunities.',
+            ),
+          ],
           if (application.status == 'Interview Scheduled') ...[
             const SizedBox(height: 8),
             Text('Interview Date: ${application.interviewDate ?? ''}'),
@@ -615,27 +622,6 @@ class _DetailBlock extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(value),
-        ],
-      ),
-    );
-  }
-}
-
-class _ResultLine extends StatelessWidget {
-  const _ResultLine({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
         ],
       ),
     );

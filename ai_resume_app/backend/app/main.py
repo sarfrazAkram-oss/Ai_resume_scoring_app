@@ -1,6 +1,11 @@
+import hashlib
+import io
 import json
 import logging
+import math
 import os
+import re
+import zipfile
 from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import quote, urlsplit
@@ -8,11 +13,12 @@ from urllib.parse import quote, urlsplit
 import firebase_admin
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Header, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from firebase_admin import auth as firebase_auth
 from firebase_admin import credentials
 from firebase_admin import firestore as admin_firestore
+from google.api_core.exceptions import AlreadyExists
 from pydantic import BaseModel
 
 from app.services.resume_extractor import (
@@ -28,12 +34,111 @@ from app.services.resume_scorer import (
 )
 from app.services.education_scorer import EducationScore, score_education
 from app.services.project_scorer import ProjectsScore, score_projects
-from app.services.final_scorer import FinalResumeScore, score_resume
+from app.services.final_scorer import (
+    FinalResumeScore,
+    score_resume,
+    score_resume_with_policy,
+)
+from app.services.scoring_v3 import SCORING_MODEL_VERSION, score_resume_v3
 
 load_dotenv()
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Resume Ranking Backend")
+
+MAX_RESUME_SIZE_BYTES = 10 * 1024 * 1024
+MAX_MULTIPART_OVERHEAD_BYTES = 64 * 1024
+MAX_UPLOAD_REQUEST_SIZE_BYTES = (
+    MAX_RESUME_SIZE_BYTES + MAX_MULTIPART_OVERHEAD_BYTES
+)
+_SAFE_STORAGE_DOCUMENT_ID = re.compile(r"[A-Za-z0-9_-]+\Z")
+
+
+def _is_safe_storage_document_id(value: str) -> bool:
+    return (
+        0 < len(value) <= 1500
+        and _SAFE_STORAGE_DOCUMENT_ID.fullmatch(value) is not None
+        and not (value.startswith("__") and value.endswith("__"))
+    )
+
+
+class _UploadRequestTooLarge(Exception):
+    pass
+
+
+class UploadRequestSizeLimitMiddleware:
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        if (
+            scope.get("type") != "http"
+            or scope.get("method") != "POST"
+            or scope.get("path") != "/upload-resume"
+        ):
+            await self.app(scope, receive, send)
+            return
+
+        content_length = next(
+            (
+                value
+                for name, value in scope.get("headers", [])
+                if name.lower() == b"content-length"
+            ),
+            None,
+        )
+        try:
+            declared_size = int(content_length) if content_length is not None else None
+        except ValueError:
+            declared_size = None
+        if (
+            declared_size is not None
+            and declared_size > MAX_UPLOAD_REQUEST_SIZE_BYTES
+        ):
+            await self._send_too_large(send)
+            return
+
+        received_size = 0
+        response_started = False
+
+        async def limited_receive() -> Any:
+            nonlocal received_size
+            message = await receive()
+            if message.get("type") == "http.request":
+                received_size += len(message.get("body", b""))
+                if received_size > MAX_UPLOAD_REQUEST_SIZE_BYTES:
+                    raise _UploadRequestTooLarge
+            return message
+
+        async def tracked_send(message: Any) -> None:
+            nonlocal response_started
+            if message.get("type") == "http.response.start":
+                response_started = True
+            await send(message)
+
+        try:
+            await self.app(scope, limited_receive, tracked_send)
+        except _UploadRequestTooLarge:
+            if not response_started:
+                await self._send_too_large(send)
+
+    @staticmethod
+    async def _send_too_large(send: Any) -> None:
+        body = b'{"detail":"Upload request exceeds the maximum size"}'
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 413,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"content-length", str(len(body)).encode("ascii")),
+                ],
+            }
+        )
+        await send({"type": "http.response.body", "body": body})
+
+
+app.add_middleware(UploadRequestSizeLimitMiddleware)
 
 _DEFAULT_CORS_ORIGINS = (
     "http://localhost:3000",
@@ -107,7 +212,8 @@ class ProjectsScoreRequest(BaseModel):
     resumeProjects: list[dict[str, str]]
     jobTitle: str
     requiredSkills: str | list[str] | None = None
-    jobDescription: str
+    projectCriteria: str | list[str] | None = None
+    jobDescription: str = ""
 
 
 class FinalResumeScoreRequest(BaseModel):
@@ -120,10 +226,25 @@ class FinalResumeScoreRequest(BaseModel):
     requiredExperience: str = ""
     requiredEducation: str = ""
     jobDescription: str = ""
+    jobPolicy: dict[str, Any] | None = None
 
 
 class ScoreApplicationRequest(BaseModel):
     applicationId: str
+    confirmRescore: bool = False
+
+
+class ApplicationDuplicateCheckRequest(BaseModel):
+    jobId: str
+
+
+class SubmitApplicationRequest(BaseModel):
+    applicationId: str
+    jobId: str
+    resumeFileName: str
+    resumeStoragePath: str
+    candidateName: str
+    candidateEmail: str
 
 
 class ScoreApplicationResponse(BaseModel):
@@ -132,6 +253,7 @@ class ScoreApplicationResponse(BaseModel):
     scoreBreakdown: dict[str, Any] | None
     scoringStatus: str
     scoredAt: str | None = None
+    scoringModelVersion: int | None = None
 
 
 def verify_firebase_token(authorization: str | None) -> str:
@@ -159,6 +281,129 @@ def verify_firebase_token(authorization: str | None) -> str:
     return str(decoded.get("uid") or "")
 
 
+def candidate_has_application(client: Any, uid: str, job_id: str) -> bool:
+    matches = (
+        client.collection("applications")
+        .where("candidateId", "==", uid)
+        .where("jobId", "==", job_id)
+        .limit(1)
+        .get()
+    )
+    return bool(matches)
+
+
+def require_application_candidate_uid(authorization: str | None) -> str:
+    uid = verify_firebase_token(authorization)
+    if not uid:
+        raise HTTPException(status_code=401, detail="Invalid Firebase token")
+    return uid
+
+
+def create_candidate_application(
+    *,
+    application_id: str,
+    job_id: str,
+    resume_file_name: str,
+    resume_storage_path: str,
+    candidate_name: str,
+    candidate_email: str,
+    uid: str,
+) -> None:
+    if (
+        not _is_safe_storage_document_id(application_id)
+        or not _is_safe_storage_document_id(job_id)
+    ):
+        raise HTTPException(status_code=400, detail="Invalid application request")
+
+    extension_parts = resume_file_name.rsplit(".", 1)
+    if (
+        len(extension_parts) != 2
+        or extension_parts[1].lower() not in {"pdf", "docx"}
+    ):
+        raise HTTPException(status_code=400, detail="Unsupported resume file type")
+    expected_resume_storage_path = (
+        f"{uid}/{job_id}/{application_id}.{extension_parts[1].lower()}"
+    )
+    if resume_storage_path != expected_resume_storage_path:
+        raise HTTPException(status_code=400, detail="Invalid application request")
+
+    client = get_firestore_client()
+    job_document = client.collection("jobs").document(job_id).get()
+    if not job_document.exists:
+        raise HTTPException(status_code=404, detail="Job not found")
+    job_data = job_document.to_dict() or {}
+    if job_data.get("status") != "active":
+        raise HTTPException(status_code=404, detail="Job not found")
+    recruiter_id = job_data.get("createdBy")
+    job_title = job_data.get("title")
+    company_name = job_data.get("companyName", "")
+    if (
+        not isinstance(recruiter_id, str)
+        or not recruiter_id
+        or not isinstance(job_title, str)
+        or not job_title
+        or not isinstance(company_name, str)
+    ):
+        raise HTTPException(status_code=400, detail="Job ownership could not be verified")
+
+    if candidate_has_application(client, uid, job_id):
+        raise HTTPException(status_code=409, detail="You have already applied to this job.")
+
+    lock_key = json.dumps([uid, job_id], separators=(",", ":"))
+    lock_id = hashlib.sha256(lock_key.encode("utf-8")).hexdigest()
+    application_reference = client.collection("applications").document(application_id)
+    projection_reference = client.collection("candidateApplications").document(
+        application_id
+    )
+    lock_reference = client.collection("applicationSubmissionLocks").document(lock_id)
+    application_data = {
+        "jobId": job_id,
+        "jobTitle": job_title,
+        "companyName": company_name,
+        "recruiterId": recruiter_id,
+        "candidateId": uid,
+        "candidateEmail": candidate_email,
+        "candidateName": candidate_name,
+        "resumeFileName": resume_file_name,
+        "resumeStoragePath": resume_storage_path,
+        "appliedAt": admin_firestore.SERVER_TIMESTAMP,
+        "status": "Pending",
+        "score": None,
+        "scoringStatus": "pending",
+        "scoreShared": False,
+    }
+    projection_data = {
+        "jobId": job_id,
+        "jobTitle": job_title,
+        "recruiterId": recruiter_id,
+        "candidateId": uid,
+        "candidateName": candidate_name,
+        "resumeFileName": resume_file_name,
+        "appliedAt": admin_firestore.SERVER_TIMESTAMP,
+        "status": "Pending",
+        "scoreShared": False,
+    }
+
+    batch = client.batch()
+    batch.create(
+        lock_reference,
+        {
+            "applicationId": application_id,
+            "jobId": job_id,
+            "createdAt": admin_firestore.SERVER_TIMESTAMP,
+        },
+    )
+    batch.create(application_reference, application_data)
+    batch.create(projection_reference, projection_data)
+    try:
+        batch.commit()
+    except AlreadyExists as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="An application already exists for this job or request.",
+        ) from exc
+
+
 def fetch_application_for_scoring(application_id: str, uid: str) -> dict[str, Any]:
     application_doc = get_firestore_client().collection("applications").document(application_id).get()
     if not application_doc.exists:
@@ -173,6 +418,106 @@ def fetch_application_for_scoring(application_id: str, uid: str) -> dict[str, An
     return application_data
 
 
+def normalize_job_scoring_policy(job_data: dict[str, Any]) -> dict[str, Any]:
+    policy_version = job_data.get("scoringPolicyVersion")
+    if policy_version is None:
+        return {}
+    try:
+        version = int(policy_version)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="Invalid scoring policy version") from exc
+    if version != 2:
+        raise HTTPException(status_code=400, detail="Unsupported scoring policy version")
+
+    state_fields = {
+        "skillsRequirement": "skillsRequirement",
+        "experienceRequirement": "experienceRequirement",
+        "educationRequirement": "educationRequirement",
+        "projectsRequirement": "projectsRequirement",
+    }
+    states: dict[str, str] = {}
+    for key, field in state_fields.items():
+        value = job_data.get(field)
+        if not isinstance(value, str) or value not in {
+            "required",
+            "preferred",
+            "not_applicable",
+        }:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid or missing scoring applicability: {field}",
+            )
+        states[key] = value
+    if all(value == "not_applicable" for value in states.values()):
+        raise HTTPException(
+            status_code=400,
+            detail="At least one scoring category must be applicable",
+        )
+
+    def has_criteria(value: Any) -> bool:
+        if isinstance(value, str):
+            return bool(re.search(r"[A-Za-z0-9]", value))
+        if isinstance(value, list):
+            return any(has_criteria(item) for item in value)
+        return False
+
+    skills = job_data.get("requiredSkills")
+    education = job_data.get("requiredEducation")
+    project_criteria = job_data.get("projectCriteria")
+    if states["skillsRequirement"] != "not_applicable":
+        if not has_criteria(skills) or score_skills([], skills)["skillsScore"] is None:
+            raise HTTPException(status_code=400, detail="Applicable skills criteria are missing or invalid")
+    if states["educationRequirement"] != "not_applicable":
+        if (
+            not has_criteria(education)
+            or score_education([], str(education))["educationScore"] is None
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Applicable education criteria are missing or invalid",
+            )
+    if states["projectsRequirement"] != "not_applicable":
+        if (
+            not has_criteria(project_criteria)
+            or score_projects(
+                [],
+                str(job_data.get("title") or ""),
+                project_criteria,
+                str(job_data.get("description") or ""),
+            )["projectsScore"]
+            is None
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Applicable project criteria are missing or invalid",
+            )
+
+    experience_years: Any = job_data.get("experienceYears")
+    if states["experienceRequirement"] != "not_applicable":
+        if isinstance(experience_years, bool):
+            experience_years = None
+        try:
+            parsed_years = float(experience_years)
+        except (TypeError, ValueError):
+            parsed_years = 0.0
+        if not math.isfinite(parsed_years) or parsed_years <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Applicable experience requires positive experience years",
+            )
+        experience_years = parsed_years
+
+    return {
+        "scoringPolicyVersion": version,
+        "jobType": str(job_data.get("jobType") or "").strip(),
+        **states,
+        "experienceYears": experience_years,
+        "projectCriteria": project_criteria,
+        "requiredSkills": skills,
+        "requiredEducation": education,
+    }
+
+
 def fetch_job_for_scoring(job_id: str) -> dict[str, Any]:
     job_doc = get_firestore_client().collection("jobs").document(job_id).get()
     if not job_doc.exists:
@@ -183,13 +528,20 @@ def fetch_job_for_scoring(job_id: str) -> dict[str, Any]:
     if required_skills is None:
         required_skills = job_data.get("requirements")
 
-    return {
+    legacy = {
         "title": str(job_data.get("title") or ""),
         "description": str(job_data.get("description") or ""),
         "requiredSkills": required_skills,
         "requiredExperience": job_data.get("requiredExperience") or "",
         "requiredEducation": job_data.get("requiredEducation") or "",
+        "jobType": str(job_data.get("jobType") or job_data.get("job_type") or ""),
+        "projectCriteria": job_data.get("projectCriteria") or job_data.get("project_criteria") or "",
     }
+    policy = normalize_job_scoring_policy(job_data)
+    if policy:
+        legacy.update(policy)
+        return legacy
+    return legacy
 
 
 def download_resume_for_scoring(resume_storage_path: str) -> bytes:
@@ -228,37 +580,45 @@ def persist_application_failure(
     application_id: str,
     error_code: str,
 ) -> None:
-    get_firestore_client().collection("applications").document(application_id).update({
-        "scoringStatus": "failed",
-        "scoringErrorCode": error_code,
-        "scoredAt": admin_firestore.SERVER_TIMESTAMP,
-    })
+    document = (
+        get_firestore_client()
+        .collection("applications")
+        .document(application_id)
+    )
+    snapshot = document.get()
+    snapshot_data = snapshot.to_dict() if snapshot.exists else {}
+    current = snapshot_data if isinstance(snapshot_data, dict) else {}
+    if current.get("score") is not None:
+        document.update(
+            {
+                "scoringAttemptStatus": "failed",
+                "scoringErrorCode": error_code,
+            }
+        )
+        return
+    document.update(
+        {
+            "scoringStatus": "failed",
+            "scoringErrorCode": error_code,
+        }
+    )
 
 
 def persist_scoring_status(application_id: str, status: str) -> None:
-    get_firestore_client().collection("applications").document(application_id).update({
-        "scoringStatus": status,
-        "scoredAt": admin_firestore.SERVER_TIMESTAMP,
-    })
-
-
-def _build_score_breakdown(result: FinalResumeScore) -> dict[str, Any]:
-    skills = result["skills"]
-    experience = result["experience"]
-    education = result["education"]
-    projects = result["projects"]
-
-    return {
-        "skillsScore": skills.get("skillsScore"),
-        "experienceScore": experience.get("experienceScore"),
-        "educationScore": education.get("educationScore"),
-        "projectsScore": projects.get("projectsScore"),
-        "finalScore": result["finalScore"],
-        "skillsMax": int(skills["maxScore"]),
-        "experienceMax": int(experience["maxScore"]),
-        "educationMax": int(education["maxScore"]),
-        "projectsMax": int(projects["maxScore"]),
-    }
+    document = (
+        get_firestore_client()
+        .collection("applications")
+        .document(application_id)
+    )
+    snapshot = document.get()
+    snapshot_data = snapshot.to_dict() if snapshot.exists else {}
+    current = snapshot_data if isinstance(snapshot_data, dict) else {}
+    field = (
+        "scoringAttemptStatus"
+        if current.get("score") is not None
+        else "scoringStatus"
+    )
+    document.update({field: status})
 
 
 def persist_application_score(
@@ -266,6 +626,8 @@ def persist_application_score(
     score: float | None,
     score_breakdown: dict[str, Any] | None,
     error_code: str | None = None,
+    scoring_model_version: int | None = None,
+    job_id: str | None = None,
 ) -> dict[str, Any]:
     status = "failed" if score is None else "scored"
     response_scored_at = datetime.now(timezone.utc).isoformat()
@@ -275,20 +637,90 @@ def persist_application_score(
         "scoringStatus": status,
         "scoredAt": admin_firestore.SERVER_TIMESTAMP,
     }
+    if scoring_model_version is not None:
+        payload["scoringModelVersion"] = scoring_model_version
     if error_code:
         payload["scoringErrorCode"] = error_code
-    get_firestore_client().collection("applications").document(application_id).update(payload)
-    return {
-        "applicationId": application_id,
-        "score": score,
-        "scoreBreakdown": score_breakdown,
-        "scoringStatus": status,
-        "scoredAt": response_scored_at,
-    }
+
+    client = get_firestore_client()
+    document = client.collection("applications").document(application_id)
+    transaction = client.transaction()
+
+    @admin_firestore.transactional
+    def save_score(transaction: Any) -> dict[str, Any]:
+        snapshot = document.get(transaction=transaction)
+        if not snapshot.exists:
+            raise HTTPException(status_code=404, detail="Application not found")
+        current = snapshot.to_dict() or {}
+
+        if score is not None and scoring_model_version is not None and job_id:
+            cohort = (
+                client.collection("applications")
+                .where("jobId", "==", job_id)
+                .stream(transaction=transaction)
+            )
+            for other_application in cohort:
+                if other_application.id == application_id:
+                    continue
+                other = other_application.to_dict() or {}
+                if other.get("score") is None:
+                    continue
+                other_version = other.get("scoringModelVersion")
+                if other_version is None:
+                    other_breakdown = other.get("scoreBreakdown")
+                    if isinstance(other_breakdown, dict):
+                        other_version = other_breakdown.get("scoringModelVersion")
+                if other_version != scoring_model_version:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=(
+                            "This job has scored applications using another scoring "
+                            "model version. Rescore the full cohort before updating "
+                            "this application."
+                        ),
+                    )
+
+        history = list(current.get("scoringHistory") or [])
+        if current.get("score") is not None:
+            history.append(
+                {
+                    "score": current.get("score"),
+                    "scoreBreakdown": current.get("scoreBreakdown"),
+                    "scoringModelVersion": current.get("scoringModelVersion"),
+                    "scoredAt": current.get("scoredAt"),
+                }
+            )
+        score_payload = {
+            **payload,
+            "scoringHistory": history,
+            "scoringErrorCode": admin_firestore.DELETE_FIELD,
+            "scoringAttemptStatus": admin_firestore.DELETE_FIELD,
+        }
+        transaction.set(document, score_payload, merge=True)
+        return {
+            "applicationId": application_id,
+            "score": score,
+            "scoreBreakdown": score_breakdown,
+            "scoringStatus": status,
+            "scoredAt": response_scored_at,
+            "scoringModelVersion": scoring_model_version,
+        }
+
+    return save_score(transaction)
 
 
-def score_application_for_application(application_id: str, uid: str) -> dict[str, Any]:
+def score_application_for_application(
+    application_id: str,
+    uid: str,
+    *,
+    confirm_rescore: bool = False,
+) -> dict[str, Any]:
     application = fetch_application_for_scoring(application_id, uid)
+    if application.get("score") is not None and not confirm_rescore:
+        raise HTTPException(
+            status_code=409,
+            detail="Rescoring an existing application requires explicit confirmation.",
+        )
     persist_scoring_status(application_id, "scoring")
     try:
         job_id = application.get("jobId")
@@ -326,29 +758,41 @@ def score_application_for_application(application_id: str, uid: str) -> dict[str
                 detail="Resume extraction failed",
             ) from exc
         structured = extract_structured_information(text)
-        result = score_resume(
+        policy = normalize_job_scoring_policy(job)
+        result = score_resume_v3(
             list(structured.get("skills", [])),
-            list(structured.get("experience", [])),
+            list(structured.get("employmentEvidence", [])),
             list(structured.get("education", [])),
-            list(structured.get("projects", [])),
+            text,
             str(job.get("title") or ""),
             job.get("requiredSkills") or "",
             str(job.get("requiredExperience") or ""),
             str(job.get("requiredEducation") or ""),
             str(job.get("description") or ""),
+            job_policy=policy or None,
         )
-
-        if result["finalScore"] is None:
-            raise HTTPException(
-                status_code=400,
-                detail="The job requirements are not scorable for this resume.",
-            )
-
-        score_breakdown = _build_score_breakdown(result)
+        score_breakdown = {
+            "scoringModelVersion": result["scoringModelVersion"],
+            "jobScoringPolicyVersion": result["jobScoringPolicyVersion"],
+            "skillsScore": result["components"]["skills"]["score"],
+            "skillsMax": result["components"]["skills"]["maxScore"],
+            "experienceScore": result["components"]["experience"]["score"],
+            "experienceMax": result["components"]["experience"]["maxScore"],
+            "educationScore": result["components"]["education"]["score"],
+            "educationMax": result["components"]["education"]["maxScore"],
+            "practicalWorkScore": result["components"]["practicalWork"]["score"],
+            "practicalWorkMax": result["components"]["practicalWork"]["maxScore"],
+            "projectsScore": result["components"]["practicalWork"]["score"],
+            "projectsMax": result["components"]["practicalWork"]["maxScore"],
+            "finalScore": result["score"],
+            "components": result["components"],
+        }
         return persist_application_score(
             application_id,
-            float(result["finalScore"]),
+            float(result["score"]),
             score_breakdown,
+            scoring_model_version=SCORING_MODEL_VERSION,
+            job_id=str(job_id),
         )
     except HTTPException as exc:
         error_code = {
@@ -399,7 +843,7 @@ async def extract_resume(file: UploadFile = File(...)) -> dict[str, str | int]:
 @app.post("/extract-resume-structured")
 async def extract_resume_structured(
     file: UploadFile = File(...),
-) -> dict[str, str | int | dict[str, list[str] | list[dict[str, str]]]]:
+) -> dict[str, Any]:
     file_name = file.filename or ""
     file_bytes = await file.read()
     try:
@@ -438,13 +882,26 @@ def score_resume_projects(request: ProjectsScoreRequest) -> ProjectsScore:
     return score_projects(
         request.resumeProjects,
         request.jobTitle,
-        request.requiredSkills,
+        request.projectCriteria or request.requiredSkills,
         request.jobDescription,
     )
 
 
 @app.post("/score-resume", response_model=FinalResumeScore)
 def score_complete_resume(request: FinalResumeScoreRequest) -> FinalResumeScore:
+    if request.jobPolicy:
+        return score_resume_with_policy(
+            request.resumeSkills,
+            request.resumeExperience,
+            request.resumeEducation,
+            request.resumeProjects,
+            request.jobTitle,
+            request.requiredSkills,
+            request.requiredExperience,
+            request.requiredEducation,
+            request.jobDescription,
+            job_policy=request.jobPolicy,
+        )
     return score_resume(
         request.resumeSkills,
         request.resumeExperience,
@@ -464,5 +921,156 @@ def score_application_endpoint(
     authorization: str | None = Header(default=None, alias="Authorization"),
 ) -> ScoreApplicationResponse:
     uid = verify_firebase_token(authorization)
-    payload = score_application_for_application(request.applicationId, uid)
+    payload = score_application_for_application(
+        request.applicationId,
+        uid,
+        confirm_rescore=request.confirmRescore,
+    )
     return ScoreApplicationResponse(**payload)
+
+
+@app.post("/application-duplicate-check")
+def application_duplicate_check_endpoint(
+    request: ApplicationDuplicateCheckRequest,
+    authorization: str | None = Header(default=None, alias="Authorization"),
+) -> dict[str, bool]:
+    uid = require_application_candidate_uid(authorization)
+    if not request.jobId:
+        raise HTTPException(status_code=400, detail="Job ID is required")
+    client = get_firestore_client()
+    return {
+        "duplicate": candidate_has_application(client, uid, request.jobId),
+    }
+
+
+@app.post("/upload-resume")
+async def upload_resume_endpoint(
+    file: UploadFile = File(...),
+    application_id: str = Form(..., alias="applicationId"),
+    job_id: str = Form(..., alias="jobId"),
+    authorization: str | None = Header(default=None, alias="Authorization"),
+) -> dict[str, str]:
+    uid = require_application_candidate_uid(authorization)
+    if (
+        not _is_safe_storage_document_id(application_id)
+        or not _is_safe_storage_document_id(job_id)
+    ):
+        raise HTTPException(status_code=400, detail="Invalid application request")
+
+    client = get_firestore_client()
+    job_document = client.collection("jobs").document(job_id).get()
+    if not job_document.exists:
+        raise HTTPException(status_code=404, detail="Job not found")
+    job_data = job_document.to_dict() or {}
+    if job_data.get("status") != "active":
+        raise HTTPException(status_code=404, detail="Job not found")
+    if candidate_has_application(client, uid, job_id):
+        raise HTTPException(
+            status_code=409,
+            detail="You have already applied to this job.",
+        )
+
+    file_name = file.filename or ""
+    extension_parts = file_name.rsplit(".", 1)
+    if len(extension_parts) != 2:
+        raise HTTPException(status_code=400, detail="Unsupported resume file type")
+    extension = extension_parts[1].lower()
+    content_types = {
+        "pdf": "application/pdf",
+        "docx": (
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ),
+    }
+    expected_content_type = content_types.get(extension)
+    actual_content_type = (file.content_type or "").split(";", 1)[0].strip().lower()
+    if expected_content_type is None or actual_content_type not in {
+        expected_content_type,
+        "application/octet-stream",
+    }:
+        raise HTTPException(status_code=400, detail="Unsupported resume file type")
+
+    first_byte = await file.read(1)
+    if not first_byte:
+        raise HTTPException(status_code=400, detail="Resume file is empty")
+    file_bytes = first_byte + await file.read(MAX_RESUME_SIZE_BYTES)
+    if len(file_bytes) > MAX_RESUME_SIZE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail="Resume file exceeds the 10 MiB limit",
+        )
+
+    if extension == "pdf":
+        if b"%PDF-" not in file_bytes[:1024]:
+            raise HTTPException(status_code=400, detail="Invalid resume file content")
+    else:
+        try:
+            with zipfile.ZipFile(io.BytesIO(file_bytes)) as archive:
+                document_parts = set(archive.namelist())
+        except (OSError, zipfile.BadZipFile) as exc:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid resume file content",
+            ) from exc
+        if not {"[Content_Types].xml", "word/document.xml"}.issubset(
+            document_parts
+        ):
+            raise HTTPException(status_code=400, detail="Invalid resume file content")
+
+    resume_storage_path = f"{uid}/{job_id}/{application_id}.{extension}"
+    supabase_url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+    supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+    if not supabase_url or not supabase_key:
+        raise HTTPException(
+            status_code=500,
+            detail="Supabase service configuration is missing",
+        )
+    parsed_url = urlsplit(supabase_url)
+    if not parsed_url.scheme or not parsed_url.netloc or parsed_url.path:
+        raise HTTPException(
+            status_code=500,
+            detail="Supabase URL must be a project base URL",
+        )
+
+    object_path = quote(resume_storage_path, safe="/")
+    url = f"{supabase_url}/storage/v1/object/resumes/{object_path}"
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as storage_client:
+            response = await storage_client.post(
+                url,
+                content=file_bytes,
+                headers={
+                    "Authorization": f"Bearer {supabase_key}",
+                    "apikey": supabase_key,
+                    "Content-Type": expected_content_type,
+                    "x-upsert": "false",
+                },
+            )
+    except httpx.HTTPError as exc:
+        logger.warning(
+            "Supabase resume upload transport failed (%s)",
+            type(exc).__name__,
+        )
+        raise HTTPException(status_code=502, detail="Resume upload failed") from exc
+    if response.status_code >= 400:
+        logger.warning("Supabase resume upload returned HTTP %s", response.status_code)
+        raise HTTPException(status_code=502, detail="Resume upload failed")
+
+    return {"resumeStoragePath": resume_storage_path}
+
+
+@app.post("/submit-application")
+def submit_application_endpoint(
+    request: SubmitApplicationRequest,
+    authorization: str | None = Header(default=None, alias="Authorization"),
+) -> dict[str, str]:
+    uid = require_application_candidate_uid(authorization)
+    create_candidate_application(
+        application_id=request.applicationId,
+        job_id=request.jobId,
+        resume_file_name=request.resumeFileName,
+        resume_storage_path=request.resumeStoragePath,
+        candidate_name=request.candidateName,
+        candidate_email=request.candidateEmail,
+        uid=uid,
+    )
+    return {"applicationId": request.applicationId}

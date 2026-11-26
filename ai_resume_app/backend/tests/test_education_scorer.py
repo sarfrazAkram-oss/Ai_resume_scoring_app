@@ -84,6 +84,20 @@ class EducationScorerTests(unittest.TestCase):
         self.assertEqual(result["candidateStatus"], "completed")
         self.assertEqual(result["educationScore"], 20.0)
 
+    def test_common_degree_abbreviations_preserve_their_levels(self) -> None:
+        cases = (
+            ("BS", "bachelor"),
+            ("BSc", "bachelor"),
+            ("MS", "master"),
+            ("MSc", "master"),
+            ("PhD", "doctorate"),
+        )
+        for degree, level in cases:
+            with self.subTest(degree=degree):
+                result = score_education([{"text": degree}], degree)
+                self.assertEqual(result["candidateDegree"], degree)
+                self.assertEqual(result["candidateLevel"], level)
+
     def test_master_meets_generic_bachelor_requirement(self) -> None:
         result = score_education([{"text": "MBA"}], "Bachelor's degree")
         self.assertEqual(result["educationScore"], 20.0)

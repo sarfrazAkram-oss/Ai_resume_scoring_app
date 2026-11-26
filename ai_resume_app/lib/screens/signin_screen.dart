@@ -359,38 +359,6 @@ class _SignInScreenState extends State<SignInScreen> {
                   ),
                   const SizedBox(height: 16),
                   Row(
-                    children: [
-                      Expanded(
-                        child: CustomButton(
-                          text: 'Candidate',
-                          onPressed: _handleCandidateLogin,
-                          height: 50,
-                          borderRadius: 16,
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF5F8EDC), Color(0xFF3D79D0)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: CustomButton(
-                          text: 'Recruiter',
-                          onPressed: _attemptRecruiterAccess,
-                          height: 50,
-                          borderRadius: 16,
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF1E9A76), Color(0xFF167A5C)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Text(

@@ -1,6 +1,6 @@
 # ML Screening Experiment
 
-This is a leakage-controlled binary classification experiment, not the production Resume Ranking Engine.
+This is an offline historical-label classification experiment, not the production Resume Ranking Engine.
 
 ## 1. Experiment Objective
 
@@ -27,7 +27,7 @@ The dataset has no raw resume text, recruiter job requirements, or resume/job pa
 
 ## 6. Leakage Analysis
 
-`skills_match_score` was excluded because it is a precomputed match-like feature and can circularly encode the shortlist decision. No other direct outcome/match field was used.
+`skills_match_score` was excluded because it is a precomputed match-like feature and can circularly encode the shortlist decision. No other direct outcome/match field was used. The dataset does not document label-generation provenance, so indirect or proxy leakage cannot be ruled out.
 
 ## 7. Excluded Features
 
@@ -39,9 +39,21 @@ The dataset has no raw resume text, recruiter job requirements, or resume/job pa
 
 `years_experience`, `education_level`, `project_count`, `resume_length`, `github_activity`
 
+### Dataset distributions and live-parser compatibility
+
+| Feature | Dataset distribution | Live resume feature compatibility |
+|---|---|---|
+| `years_experience` | numeric-like; missing=0; min=0; median=7; max=15 | Approximate only: live experience entries can yield candidateYears, but the dataset's source calculation and units are undocumented. |
+| `education_level` | Bachelors: 13461; High School: 2991; Masters: 10524; PhD: 3024 | Partial only: live education parsing provides degree/level; dataset categories and qualification-selection rules are not equivalent by definition. |
+| `project_count` | numeric-like; missing=0; min=0; median=10; max=25 | Partial only: live projects can be counted, but project extraction is incomplete and the dataset's counting definition is undocumented. |
+| `resume_length` | numeric-like; missing=0; min=150; median=574; max=900 | Incompatible until defined: live text length can be measured, but the dataset unit and preprocessing definition are undocumented. |
+| `github_activity` | numeric-like; missing=0; min=0; median=321; max=842 | Unavailable: live resume parsing does not extract a defined GitHub activity metric; do not infer activity from a URL or mention. |
+
+These are feature-schema comparisons, not proof that the live parser produces equivalent values. `skills_match_score` is excluded as leakage risk; the target is never a feature.
+
 ## 9. Data Cleaning
 
-Numeric columns were coercively parsed with invalid values becoming missing; numeric missing values use training-set medians. `education_level` is one-hot encoded with a training-fitted most-frequent imputer. The target accepts only Yes/No; duplicate rows were checked and no exact duplicates were found.
+Numeric columns were coercively parsed with invalid values becoming missing; numeric missing values use training-set medians. `education_level` is one-hot encoded with a training-fitted most-frequent imputer. The target accepts only Yes/No. Source rows=30000; rows with valid labels=30000; invalid-label rows excluded=0; exact duplicate rows=0.
 
 ## 10. Train/Test Split
 
@@ -51,7 +63,13 @@ Stratified 80/20 split: train=24000, test=6000. Preprocessing is inside each skl
 
 Yes=20966 (69.887%), No=9034 (30.113%). Accuracy is therefore not sufficient by itself; precision, recall, F1, ROC-AUC, and the confusion matrix are reported.
 
-## 12. Logistic Regression Results
+## 12. Majority-Class Baseline
+
+Predicts the training majority class (`Yes`) for every test row. Accuracy=0.6988, Precision=0.6988, Recall=1.0, F1=0.8227.
+
+Confusion matrix `[[TN, FP], [FN, TP]]`: `[[0, 1807], [0, 4193]]`
+
+## 13. Logistic Regression Results
 
 Accuracy=0.8935, Precision=0.9185, Recall=0.9301, F1=0.9243, ROC-AUC=0.9564
 
@@ -68,7 +86,7 @@ Top associated transformed features (not causal effects):
 - `categorical__education_level_Bachelors`: 0.092863
 - `numeric__resume_length`: 0.022295
 
-## 13. Random Forest Results
+## 14. Random Forest Results
 
 Accuracy=0.8822, Precision=0.9092, Recall=0.9237, F1=0.9164, ROC-AUC=0.9494
 
@@ -85,18 +103,22 @@ Top associated transformed features (not causal effects):
 - `categorical__education_level_Masters`: 0.007954
 - `categorical__education_level_Bachelors`: 0.007788
 
-## 17. Model Comparison
+## 15. Model Comparison
 
-The metrics above compare two interpretable baselines on the same held-out stratified test set. No model selection was promoted to production.
+The classifiers and majority baseline use the same held-out stratified test set. Model comparison is limited to this historical classification task; no model is promoted to production.
 
-## 18. Limitations
+## 16. Limitations
 
-The dataset contains engineered candidate-side features rather than resume/job pairs. It does not test recruiter-created requirements, text extraction, domain relevance, project evidence, or the production /100 score. The shortlist label may reflect an unknown historical process.
+The dataset contains engineered candidate-side features rather than resume/job pairs. Feature source definitions and units are undocumented. GitHub activity is not extracted by the live parser; resume length units and project-count semantics cannot be confirmed. It does not test recruiter-created requirements, text extraction, domain relevance, project evidence, or the production /100 score. The shortlist label may reflect an unknown historical process.
 
-## 19. Relationship to the Existing /100 Resume Ranking Engine
+## 17. Relationship to the Existing /100 Resume Ranking Engine
 
 The deterministic engine and its 40/25/20/15 weights were not modified. This experiment is isolated and does not write scores, shortlist candidates, call Flutter, or connect to Firestore/Supabase.
 
-## 20. Final Conclusion
+## 18. Ranking labels needed
 
-This experiment measures how two simple classifiers model the supplied historical screening labels without the explicitly precomputed match feature. It does not prove accuracy for recruiter-job matching and must not replace the deterministic production score.
+To evaluate job-specific ranking, collect recruiter-judged relevance for each job–resume pair (for example, graded relevance levels with a documented rubric), including multiple candidates per job. Keep jobs/candidates separated between training and test. Then report NDCG@K and Precision@K (and optionally Recall@K/MAP) against those held-out judgments.
+
+## 19. Readiness
+
+Not ready for live integration: the current features cannot all be reliably reproduced from live resumes and the historical `shortlisted` label is not job-specific relevance. The experiment measures historical shortlisting classification only, not CV-ranking quality.

@@ -8,21 +8,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_core_platform_interface/test.dart';
 import 'package:ai_resume_app/main.dart';
 import 'package:ai_resume_app/screens/home_screen.dart';
-import 'package:ai_resume_app/widgets/custom_button.dart';
 import 'package:ai_resume_app/screens/signin_screen.dart';
 import 'package:ai_resume_app/screens/signup_screen.dart';
+import 'package:ai_resume_app/widgets/custom_button.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() async {
+    TestFirebaseCoreHostApi.setUp(MockFirebaseApp());
+    await Firebase.initializeApp();
+  });
+
   testWidgets('App boots into splash screen', (WidgetTester tester) async {
     await tester.pumpWidget(const AiResumeApp());
 
-    expect(find.text('Skip >'), findsOneWidget);
-    expect(find.text('AI-Based Resume'), findsNothing);
+    expect(find.text('Skip'), findsNWidgets(3));
+    expect(find.text('Your Career, Smarter.'), findsOneWidget);
   });
 
-  testWidgets('Home screen lays out on narrow widths', (
+  testWidgets('Current home screen lays out on narrow widths', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(320, 800);
@@ -33,11 +42,11 @@ void main() {
 
     await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
 
-    expect(find.text('Analyze Resume'), findsOneWidget);
-    expect(find.text('Resume History'), findsOneWidget);
+    expect(find.text('Available Jobs'), findsOneWidget);
+    expect(find.text('My Applications'), findsOneWidget);
   });
 
-  testWidgets('Login button navigates to visible home screen', (
+  testWidgets('Login form validates missing credentials', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MaterialApp(home: SignInScreen()));
@@ -46,15 +55,16 @@ void main() {
       (widget) => widget is CustomButton && widget.text == 'Log In',
     );
 
+    await tester.ensureVisible(loginButton);
     await tester.tap(loginButton);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('Resume Score'), findsOneWidget);
-    expect(find.text('Main Menu'), findsOneWidget);
+    expect(find.text('Please enter both email and password.'), findsOneWidget);
+    expect(find.byType(SignInScreen), findsOneWidget);
   });
 
-  testWidgets('Signup button navigates to visible home screen', (
+  testWidgets('Signup form validates missing required fields', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(800, 1400);
@@ -69,11 +79,12 @@ void main() {
       (widget) => widget is CustomButton && widget.text == 'Sign Up',
     );
 
+    await tester.ensureVisible(signUpButton);
     await tester.tap(signUpButton);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('Resume Score'), findsOneWidget);
-    expect(find.text('Main Menu'), findsOneWidget);
+    expect(find.text('Please complete all required fields.'), findsOneWidget);
+    expect(find.byType(SignUpScreen), findsOneWidget);
   });
 }

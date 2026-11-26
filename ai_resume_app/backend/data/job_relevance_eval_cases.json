@@ -1,0 +1,582 @@
+{
+  "datasetType": "synthetic_engineering_cases",
+  "labelsAreGroundTruth": false,
+  "cases": [
+    {
+      "caseId": "SYN-01",
+      "domain": "Software / IT",
+      "purpose": "Direct domain evidence",
+      "jobTitle": "Flutter Developer",
+      "jobDescription": "Build applications with Flutter and maintain code.",
+      "requiredSkills": ["Flutter"],
+      "experienceRequirement": "2 years",
+      "expectedLabel": "direct",
+      "evidenceRationale": "Employment text explicitly describes building Flutter applications and maintaining code.",
+      "employmentEvidence": [
+        {
+          "title": "Flutter Developer",
+          "employer": "Synthetic Employer",
+          "startDateEvidence": "2020",
+          "endDateEvidence": "2022",
+          "isCurrent": false,
+          "responsibilities": ["Build applications with Flutter and maintain code."],
+          "technologiesAndTools": ["Flutter"],
+          "sourceText": "Flutter Developer at Synthetic Employer 2020 - 2022. Build applications with Flutter and maintain code.",
+          "isInternship": false,
+          "extractionConfidence": "high",
+          "evidenceStatus": "structured"
+        }
+      ]
+    },
+    {
+      "caseId": "SYN-02",
+      "domain": "Healthcare",
+      "purpose": "Direct clinical duties",
+      "jobTitle": "Registered Nurse",
+      "jobDescription": "Provide patient care and administer medication.",
+      "requiredSkills": [],
+      "experienceRequirement": "2 years",
+      "expectedLabel": "direct",
+      "evidenceRationale": "Nursing role title and explicit patient-care and medication duties.",
+      "employmentEvidence": [
+        {
+          "title": "Nurse",
+          "employer": "Synthetic Hospital",
+          "startDateEvidence": "2020",
+          "endDateEvidence": "2022",
+          "isCurrent": false,
+          "responsibilities": ["Patient care and administer medication."],
+          "technologiesAndTools": [],
+          "sourceText": "Nurse at Synthetic Hospital 2020 - 2022. Patient care and administer medication.",
+          "isInternship": false,
+          "extractionConfidence": "high",
+          "evidenceStatus": "structured"
+        }
+      ]
+    },
+    {
+      "caseId": "SYN-03",
+      "domain": "Engineering",
+      "purpose": "Different title with matching duties",
+      "jobTitle": "Mechanical Engineer",
+      "jobDescription": "Perform CAD design and prepare technical drawings.",
+      "requiredSkills": ["CAD"],
+      "experienceRequirement": "2 years",
+      "expectedLabel": "direct",
+      "evidenceRationale": "CAD design and technical drawings are explicit role duties despite the different title.",
+      "employmentEvidence": [
+        {
+          "title": "CAD Designer",
+          "employer": "Synthetic Employer",
+          "startDateEvidence": "2020",
+          "endDateEvidence": "2022",
+          "isCurrent": false,
+          "responsibilities": ["CAD design and technical drawings."],
+          "technologiesAndTools": ["CAD"],
+          "sourceText": "CAD Designer at Synthetic Employer 2020 - 2022. CAD design and technical drawings.",
+          "isInternship": false,
+          "extractionConfidence": "high",
+          "evidenceStatus": "structured"
+        }
+      ]
+    },
+    {
+      "caseId": "SYN-04",
+      "domain": "Marketing",
+      "purpose": "Direct SEO campaign duties",
+      "jobTitle": "SEO Specialist",
+      "jobDescription": "Run SEO campaigns and improve organic search performance.",
+      "requiredSkills": ["SEO"],
+      "experienceRequirement": "2 years",
+      "expectedLabel": "direct",
+      "evidenceRationale": "Employment evidence explicitly describes SEO campaigns and organic search.",
+      "employmentEvidence": [
+        {
+          "title": "Marketing Specialist",
+          "employer": "Synthetic Employer",
+          "startDateEvidence": "2020",
+          "endDateEvidence": "2022",
+          "isCurrent": false,
+          "responsibilities": ["SEO campaigns improved organic search."],
+          "technologiesAndTools": ["SEO"],
+          "sourceText": "Marketing Specialist at Synthetic Employer 2020 - 2022. SEO campaigns improved organic search.",
+          "isInternship": false,
+          "extractionConfidence": "high",
+          "evidenceStatus": "structured"
+        }
+      ]
+    },
+    {
+      "caseId": "SYN-05",
+      "domain": "Accounting / Finance",
+      "purpose": "Direct accounting duties",
+      "jobTitle": "Accountant",
+      "jobDescription": "Handle bookkeeping and financial reporting.",
+      "requiredSkills": [],
+      "experienceRequirement": "2 years",
+      "expectedLabel": "direct",
+      "evidenceRationale": "Bookkeeping and financial reporting are both explicit in the employment record.",
+      "employmentEvidence": [
+        {
+          "title": "Finance Clerk",
+          "employer": "Synthetic Employer",
+          "startDateEvidence": "2020",
+          "endDateEvidence": "2022",
+          "isCurrent": false,
+          "responsibilities": ["Bookkeeping and financial reporting."],
+          "technologiesAndTools": [],
+          "sourceText": "Finance Clerk at Synthetic Employer 2020 - 2022. Bookkeeping and financial reporting.",
+          "isInternship": false,
+          "extractionConfidence": "high",
+          "evidenceStatus": "structured"
+        }
+      ]
+    },
+    {
+      "caseId": "SYN-06",
+      "domain": "Human Resources",
+      "purpose": "Direct HR duties",
+      "jobTitle": "HR Specialist",
+      "jobDescription": "Support recruitment and employee onboarding.",
+      "requiredSkills": [],
+      "experienceRequirement": "2 years",
+      "expectedLabel": "direct",
+      "evidenceRationale": "Recruitment and employee onboarding are explicit role duties.",
+      "employmentEvidence": [
+        {
+          "title": "Recruiter",
+          "employer": "Synthetic Employer",
+          "startDateEvidence": "2020",
+          "endDateEvidence": "2022",
+          "isCurrent": false,
+          "responsibilities": ["Recruitment and employee onboarding."],
+          "technologiesAndTools": [],
+          "sourceText": "Recruiter at Synthetic Employer 2020 - 2022. Recruitment and employee onboarding.",
+          "isInternship": false,
+          "extractionConfidence": "high",
+          "evidenceStatus": "structured"
+        }
+      ]
+    },
+    {
+      "caseId": "SYN-07",
+      "domain": "Sales",
+      "purpose": "Direct sales duties with a different title",
+      "jobTitle": "Sales Executive",
+      "jobDescription": "Generate leads and acquire clients.",
+      "requiredSkills": [],
+      "experienceRequirement": "2 years",
+      "expectedLabel": "direct",
+      "evidenceRationale": "Lead generation and client acquisition explicitly support the target sales work.",
+      "employmentEvidence": [
+        {
+          "title": "Account Manager",
+          "employer": "Synthetic Employer",
+          "startDateEvidence": "2020",
+          "endDateEvidence": "2022",
+          "isCurrent": false,
+          "responsibilities": ["Lead generation and client acquisition."],
+          "technologiesAndTools": [],
+          "sourceText": "Account Manager at Synthetic Employer 2020 - 2022. Lead generation and client acquisition.",
+          "isInternship": false,
+          "extractionConfidence": "high",
+          "evidenceStatus": "structured"
+        }
+      ]
+    },
+    {
+      "caseId": "SYN-08",
+      "domain": "Cross-domain",
+      "purpose": "Explicit transferable responsibility",
+      "jobTitle": "Project Manager",
+      "jobDescription": "Manage project budgets and coordinate projects.",
+      "requiredSkills": [],
+      "experienceRequirement": "2 years",
+      "expectedLabel": "transferable",
+      "evidenceRationale": "Budget and project coordination duties are explicit, but the role is not direct project-management evidence.",
+      "employmentEvidence": [
+        {
+          "title": "Accountant",
+          "employer": "Synthetic Employer",
+          "startDateEvidence": "2020",
+          "endDateEvidence": "2022",
+          "isCurrent": false,
+          "responsibilities": ["Manage project budgets and coordinate projects."],
+          "technologiesAndTools": [],
+          "sourceText": "Accountant at Synthetic Employer 2020 - 2022. Manage project budgets and coordinate projects.",
+          "isInternship": false,
+          "extractionConfidence": "high",
+          "evidenceStatus": "structured"
+        }
+      ]
+    },
+    {
+      "caseId": "SYN-09",
+      "domain": "Software / IT",
+      "purpose": "Explicit unrelated sales employment",
+      "jobTitle": "Flutter Developer",
+      "jobDescription": "Build applications with Flutter.",
+      "requiredSkills": ["Flutter"],
+      "experienceRequirement": "2 years",
+      "expectedLabel": "unrelated",
+      "evidenceRationale": "Sales duties are explicit and no software-development duties appear in the employment record.",
+      "employmentEvidence": [
+        {
+          "title": "Sales Executive",
+          "employer": "Synthetic Employer",
+          "startDateEvidence": "2020",
+          "endDateEvidence": "2022",
+          "isCurrent": false,
+          "responsibilities": ["Lead generation and client acquisition."],
+          "technologiesAndTools": [],
+          "sourceText": "Sales Executive at Synthetic Employer 2020 - 2022. Lead generation and client acquisition.",
+          "isInternship": false,
+          "extractionConfidence": "high",
+          "evidenceStatus": "structured"
+        }
+      ]
+    },
+    {
+      "caseId": "SYN-10",
+      "domain": "Software / IT",
+      "purpose": "Same title, unrelated duties",
+      "jobTitle": "Flutter Developer",
+      "jobDescription": "Build applications with Flutter.",
+      "requiredSkills": ["Flutter"],
+      "experienceRequirement": "2 years",
+      "expectedLabel": "insufficient_evidence",
+      "evidenceRationale": "The title matches but the only listed duties are lead generation and client acquisition.",
+      "employmentEvidence": [
+        {
+          "title": "Flutter Developer",
+          "employer": "Synthetic Employer",
+          "startDateEvidence": "2020",
+          "endDateEvidence": "2022",
+          "isCurrent": false,
+          "responsibilities": ["Lead generation and client acquisition."],
+          "technologiesAndTools": [],
+          "sourceText": "Flutter Developer at Synthetic Employer 2020 - 2022. Lead generation and client acquisition.",
+          "isInternship": false,
+          "extractionConfidence": "high",
+          "evidenceStatus": "structured"
+        }
+      ]
+    },
+    {
+      "caseId": "SYN-11",
+      "domain": "Software / IT",
+      "purpose": "Skill appears only in global skill list",
+      "jobTitle": "Flutter Developer",
+      "jobDescription": "Build applications with Flutter.",
+      "requiredSkills": ["Flutter"],
+      "experienceRequirement": "2 years",
+      "expectedLabel": "unrelated",
+      "evidenceRationale": "Flutter exists only in non-employment skills; sales employment has explicit unrelated duties.",
+      "employmentEvidence": [
+        {
+          "title": "Sales Executive",
+          "employer": "Synthetic Employer",
+          "startDateEvidence": "2020",
+          "endDateEvidence": "2022",
+          "isCurrent": false,
+          "responsibilities": ["Lead generation and client acquisition."],
+          "technologiesAndTools": [],
+          "sourceText": "Sales Executive at Synthetic Employer 2020 - 2022. Lead generation and client acquisition.",
+          "globalSkills": ["Flutter"],
+          "isInternship": false,
+          "extractionConfidence": "high",
+          "evidenceStatus": "structured"
+        }
+      ]
+    },
+    {
+      "caseId": "SYN-12",
+      "domain": "Software / IT",
+      "purpose": "Title and technology without responsibilities",
+      "jobTitle": "Flutter Developer",
+      "jobDescription": "Build applications with Flutter.",
+      "requiredSkills": ["Flutter"],
+      "experienceRequirement": "2 years",
+      "expectedLabel": "insufficient_evidence",
+      "evidenceRationale": "Title and tool are present, but no employment responsibilities corroborate work.",
+      "employmentEvidence": [
+        {
+          "title": "Flutter Developer",
+          "employer": "Synthetic Employer",
+          "startDateEvidence": "2020",
+          "endDateEvidence": "2022",
+          "isCurrent": false,
+          "responsibilities": [],
+          "technologiesAndTools": ["Flutter"],
+          "sourceText": "Flutter Developer at Synthetic Employer 2020 - 2022.",
+          "isInternship": false,
+          "extractionConfidence": "high",
+          "evidenceStatus": "structured"
+        }
+      ]
+    },
+    {
+      "caseId": "SYN-13",
+      "domain": "Software / IT",
+      "purpose": "Relevant source block with ambiguous extraction status",
+      "jobTitle": "Flutter Developer",
+      "jobDescription": "Build applications with Flutter and maintain code.",
+      "requiredSkills": ["Flutter"],
+      "experienceRequirement": "2 years",
+      "expectedLabel": "direct",
+      "expectedReviewNeeded": true,
+      "evidenceRationale": "Work duties support relevance, but ambiguous role boundaries require duration review.",
+      "employmentEvidence": [
+        {
+          "title": "Flutter Developer",
+          "employer": null,
+          "startDateEvidence": "2020",
+          "endDateEvidence": "2022",
+          "isCurrent": false,
+          "responsibilities": ["Build applications with Flutter and maintain code."],
+          "technologiesAndTools": ["Flutter"],
+          "sourceText": "Flutter Developer 2020 - 2022. Build applications with Flutter and maintain code.",
+          "isInternship": false,
+          "extractionConfidence": "ambiguous",
+          "evidenceStatus": "ambiguous"
+        }
+      ]
+    },
+    {
+      "caseId": "SYN-14",
+      "domain": "Software / IT",
+      "purpose": "Relevant role with missing dates and undated duration claim",
+      "jobTitle": "Flutter Developer",
+      "jobDescription": "Build applications with Flutter and maintain code.",
+      "requiredSkills": ["Flutter"],
+      "experienceRequirement": "2 years",
+      "expectedLabel": "direct",
+      "expectedReviewNeeded": true,
+      "expectedTotalDirectRelevantMonths": 0,
+      "evidenceRationale": "Duties support relevance, but an undated duration statement is not verified date evidence.",
+      "employmentEvidence": [
+        {
+          "title": "Flutter Developer",
+          "employer": "Synthetic Employer",
+          "startDateEvidence": null,
+          "endDateEvidence": null,
+          "isCurrent": false,
+          "responsibilities": ["Build applications with Flutter and maintain code."],
+          "technologiesAndTools": ["Flutter"],
+          "sourceText": "Flutter Developer. Build applications with Flutter and maintain code. 2 years experience.",
+          "isInternship": false,
+          "extractionConfidence": "high",
+          "evidenceStatus": "structured"
+        }
+      ]
+    },
+    {
+      "caseId": "SYN-15",
+      "domain": "Software / IT",
+      "purpose": "Relevant role with ambiguous date ranges",
+      "jobTitle": "Flutter Developer",
+      "jobDescription": "Build applications with Flutter and maintain code.",
+      "requiredSkills": ["Flutter"],
+      "experienceRequirement": "2 years",
+      "expectedLabel": "direct",
+      "expectedReviewNeeded": true,
+      "expectedTotalDirectRelevantMonths": 0,
+      "evidenceRationale": "Duties support relevance, but multiple date ranges in one role cannot be safely assigned.",
+      "employmentEvidence": [
+        {
+          "title": "Flutter Developer",
+          "employer": "Synthetic Employer",
+          "startDateEvidence": null,
+          "endDateEvidence": null,
+          "isCurrent": false,
+          "responsibilities": ["Build applications with Flutter and maintain code."],
+          "technologiesAndTools": ["Flutter"],
+          "sourceText": "Flutter Developer 2020 - 2021 and 2022 - 2023. Build applications with Flutter and maintain code.",
+          "isInternship": false,
+          "extractionConfidence": "high",
+          "evidenceStatus": "structured"
+        }
+      ]
+    },
+    {
+      "caseId": "SYN-16",
+      "domain": "Software / IT",
+      "purpose": "Current employment duration",
+      "jobTitle": "Flutter Developer",
+      "jobDescription": "Build applications with Flutter and maintain code.",
+      "requiredSkills": ["Flutter"],
+      "experienceRequirement": "2 years",
+      "expectedLabel": "direct",
+      "expectedReviewNeeded": false,
+      "expectedDateStatus": "verified",
+      "evidenceRationale": "Current employment has explicit start month and current endpoint plus relevant duties.",
+      "employmentEvidence": [
+        {
+          "title": "Flutter Developer",
+          "employer": "Synthetic Employer",
+          "startDateEvidence": "Jan 2022",
+          "endDateEvidence": "Present",
+          "isCurrent": true,
+          "responsibilities": ["Build applications with Flutter and maintain code."],
+          "technologiesAndTools": ["Flutter"],
+          "sourceText": "Flutter Developer Jan 2022 - Present. Build applications with Flutter and maintain code.",
+          "isInternship": false,
+          "extractionConfidence": "high",
+          "evidenceStatus": "structured"
+        }
+      ]
+    },
+    {
+      "caseId": "SYN-17",
+      "domain": "Software / IT",
+      "purpose": "Internship employment",
+      "jobTitle": "Flutter Developer",
+      "jobDescription": "Build applications with Flutter and maintain code.",
+      "requiredSkills": ["Flutter"],
+      "experienceRequirement": "1 year",
+      "expectedLabel": "direct",
+      "expectedReviewNeeded": false,
+      "expectedTotalDirectRelevantMonths": 12,
+      "evidenceRationale": "Explicit internship duties count as dated relevant evidence; no special discount is applied.",
+      "employmentEvidence": [
+        {
+          "title": "Software Engineering Intern",
+          "employer": "Synthetic Employer",
+          "startDateEvidence": "Jan 2022",
+          "endDateEvidence": "Jan 2023",
+          "isCurrent": false,
+          "responsibilities": ["Build applications with Flutter and maintain code."],
+          "technologiesAndTools": ["Flutter"],
+          "sourceText": "Software Engineering Intern Jan 2022 - Jan 2023. Build applications with Flutter and maintain code.",
+          "isInternship": true,
+          "extractionConfidence": "high",
+          "evidenceStatus": "structured"
+        }
+      ]
+    },
+    {
+      "caseId": "SYN-18",
+      "domain": "Software / IT",
+      "purpose": "Multiple non-overlapping relevant roles",
+      "jobTitle": "Flutter Developer",
+      "jobDescription": "Build applications with Flutter and maintain code.",
+      "requiredSkills": ["Flutter"],
+      "experienceRequirement": "3 years",
+      "expectedLabel": "direct",
+      "expectedReviewNeeded": false,
+      "expectedTotalDirectRelevantMonths": 36,
+      "evidenceRationale": "Two explicitly relevant, non-overlapping roles aggregate to 36 months.",
+      "employmentEvidence": [
+        {
+          "title": "Flutter Developer",
+          "employer": "Synthetic Employer A",
+          "startDateEvidence": "2020",
+          "endDateEvidence": "2021",
+          "isCurrent": false,
+          "responsibilities": ["Build applications with Flutter and maintain code."],
+          "technologiesAndTools": ["Flutter"],
+          "sourceText": "Flutter Developer 2020 - 2021. Build applications with Flutter and maintain code.",
+          "isInternship": false,
+          "extractionConfidence": "high",
+          "evidenceStatus": "structured"
+        },
+        {
+          "title": "Software Developer",
+          "employer": "Synthetic Employer B",
+          "startDateEvidence": "2021",
+          "endDateEvidence": "2023",
+          "isCurrent": false,
+          "responsibilities": ["Build applications with Flutter and maintain code."],
+          "technologiesAndTools": ["Flutter"],
+          "sourceText": "Software Developer 2021 - 2023. Build applications with Flutter and maintain code.",
+          "isInternship": false,
+          "extractionConfidence": "high",
+          "evidenceStatus": "structured"
+        }
+      ]
+    },
+    {
+      "caseId": "SYN-19",
+      "domain": "Software / IT",
+      "purpose": "Overlapping relevant roles",
+      "jobTitle": "Flutter Developer",
+      "jobDescription": "Build applications with Flutter and maintain code.",
+      "requiredSkills": ["Flutter"],
+      "experienceRequirement": "3 years",
+      "expectedLabel": "direct",
+      "expectedReviewNeeded": false,
+      "expectedTotalDirectRelevantMonths": 36,
+      "evidenceRationale": "Overlapping intervals are merged, so concurrent jobs do not double-count months.",
+      "employmentEvidence": [
+        {
+          "title": "Flutter Developer",
+          "employer": "Synthetic Employer A",
+          "startDateEvidence": "2020",
+          "endDateEvidence": "2022",
+          "isCurrent": false,
+          "responsibilities": ["Build applications with Flutter and maintain code."],
+          "technologiesAndTools": ["Flutter"],
+          "sourceText": "Flutter Developer 2020 - 2022. Build applications with Flutter and maintain code.",
+          "isInternship": false,
+          "extractionConfidence": "high",
+          "evidenceStatus": "structured"
+        },
+        {
+          "title": "Software Developer",
+          "employer": "Synthetic Employer B",
+          "startDateEvidence": "2021",
+          "endDateEvidence": "2023",
+          "isCurrent": false,
+          "responsibilities": ["Build applications with Flutter and maintain code."],
+          "technologiesAndTools": ["Flutter"],
+          "sourceText": "Software Developer 2021 - 2023. Build applications with Flutter and maintain code.",
+          "isInternship": false,
+          "extractionConfidence": "high",
+          "evidenceStatus": "structured"
+        }
+      ]
+    },
+    {
+      "caseId": "SYN-20",
+      "domain": "Engineering",
+      "purpose": "Concurrent direct and unrelated roles",
+      "jobTitle": "Mechanical Engineer",
+      "jobDescription": "Perform CAD design and manage project budgets.",
+      "requiredSkills": ["CAD"],
+      "experienceRequirement": "2 years",
+      "expectedLabel": "direct",
+      "expectedReviewNeeded": false,
+      "expectedTotalDirectRelevantMonths": 24,
+      "expectedTotalTransferableMonths": 0,
+      "evidenceRationale": "Direct engineering interval takes priority over a concurrent unrelated interval.",
+      "employmentEvidence": [
+        {
+          "title": "Mechanical Engineer",
+          "employer": "Synthetic Employer A",
+          "startDateEvidence": "2020",
+          "endDateEvidence": "2022",
+          "isCurrent": false,
+          "responsibilities": ["CAD design."],
+          "technologiesAndTools": ["CAD"],
+          "sourceText": "Mechanical Engineer 2020 - 2022. CAD design.",
+          "isInternship": false,
+          "extractionConfidence": "high",
+          "evidenceStatus": "structured"
+        },
+        {
+          "title": "Sales Executive",
+          "employer": "Synthetic Employer B",
+          "startDateEvidence": "2020",
+          "endDateEvidence": "2022",
+          "isCurrent": false,
+          "responsibilities": ["Lead generation and client acquisition."],
+          "technologiesAndTools": [],
+          "sourceText": "Sales Executive 2020 - 2022. Lead generation and client acquisition.",
+          "isInternship": false,
+          "extractionConfidence": "high",
+          "evidenceStatus": "structured"
+        }
+      ]
+    }
+  ]
+}
