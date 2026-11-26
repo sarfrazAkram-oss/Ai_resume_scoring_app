@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../services/backend_api_service.dart';
 import '../services/firestore_service.dart';
 import 'job_management_screen.dart';
 import 'local_resume_store.dart';
@@ -131,7 +132,8 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Reject application?'),
         content: const Text(
-          'This will notify the candidate that their application was not selected.',
+          'This will mark the application as Rejected and create an in-app '
+          'notification for the candidate.',
         ),
         actions: [
           TextButton(
@@ -150,10 +152,12 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
     }
     setState(() {});
     try {
-      await FirestoreService.rejectApplication(application);
+      await BackendApiService.instance.rejectApplication(
+        applicationId: application.id,
+      );
       _showMessage('Application rejected.');
-    } catch (_) {
-      _showMessage('Could not reject application. Please try again.');
+    } catch (error) {
+      _showMessage('Could not reject application: $error');
     } finally {
       if (mounted) {
         setState(() => _loadingApplicationIds.remove(application.id));
@@ -165,10 +169,12 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
     if (!_loadingApplicationIds.add(application.id)) return;
     setState(() {});
     try {
-      await FirestoreService.shareScore(application);
+      await BackendApiService.instance.shareApplicationScore(
+        applicationId: application.id,
+      );
       _showMessage('Score shared with the candidate.');
-    } catch (_) {
-      _showMessage('Could not share the score. Please try again.');
+    } catch (error) {
+      _showMessage('Could not share the score: $error');
     } finally {
       if (mounted) {
         setState(() => _loadingApplicationIds.remove(application.id));

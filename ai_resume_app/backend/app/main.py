@@ -247,6 +247,13 @@ class SubmitApplicationRequest(BaseModel):
     candidateEmail: str
 
 
+class ApplicationActionRequest(BaseModel):
+    applicationId: str
+
+    class Config:
+        extra = "forbid"
+
+
 class ScoreApplicationResponse(BaseModel):
     applicationId: str
     score: float | None
@@ -297,6 +304,219 @@ def require_application_candidate_uid(authorization: str | None) -> str:
     if not uid:
         raise HTTPException(status_code=401, detail="Invalid Firebase token")
     return uid
+
+
+def require_recruiter_uid(authorization: str | None) -> str:
+    uid = verify_firebase_token(authorization)
+    if not uid:
+        raise HTTPException(status_code=401, detail="Invalid Firebase token")
+    return uid
+
+
+def _load_recruiter_application_context(
+    client: Any,
+    transaction: Any,
+    application_id: str,
+    recruiter_uid: str,
+) -> tuple[Any, dict[str, Any], Any, dict[str, Any]]:
+    application_reference = (
+        client.collection("applications").document(application_id)
+    )
+    application_snapshot = application_reference.get(transaction=transaction)
+    if not application_snapshot.exists:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    application_data = application_snapshot.to_dict() or {}
+    if application_data.get("recruiterId") != recruiter_uid:
+        raise HTTPException(status_code=403, detail="Application ownership mismatch")
+    if application_data.get("applicationId") not in (None, application_id):
+        raise HTTPException(status_code=409, detail="Application ID mismatch")
+
+    candidate_id = application_data.get("candidateId")
+    job_id = application_data.get("jobId")
+    if (
+        not isinstance(candidate_id, str)
+        or not candidate_id
+        or not isinstance(job_id, str)
+        or not _is_safe_storage_document_id(job_id)
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Application candidate or job relationship is invalid",
+        )
+
+    job_snapshot = (
+        client.collection("jobs").document(job_id).get(transaction=transaction)
+    )
+    if not job_snapshot.exists:
+        raise HTTPException(status_code=404, detail="Job not found")
+    job_data = job_snapshot.to_dict() or {}
+    if job_data.get("createdBy") != recruiter_uid:
+        raise HTTPException(status_code=403, detail="Job ownership mismatch")
+
+    projection_reference = (
+        client.collection("candidateApplications").document(application_id)
+    )
+    projection_snapshot = projection_reference.get(transaction=transaction)
+    if not projection_snapshot.exists:
+        raise HTTPException(
+            status_code=409,
+            detail="Candidate application projection not found",
+        )
+    projection_data = projection_snapshot.to_dict() or {}
+    if projection_data.get("applicationId") not in (None, application_id) or any(
+        projection_data.get(field) != application_data.get(field)
+        for field in ("candidateId", "jobId", "recruiterId")
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Application and candidate projection do not match",
+        )
+
+    return (
+        application_reference,
+        application_data,
+        projection_reference,
+        job_data,
+    )
+
+
+def share_existing_application_score(
+    application_id: str,
+    recruiter_uid: str,
+) -> dict[str, Any]:
+    if not _is_safe_storage_document_id(application_id):
+        raise HTTPException(status_code=400, detail="Invalid application request")
+
+    client = get_firestore_client()
+
+    @admin_firestore.transactional
+    def share_score(transaction: Any) -> dict[str, Any]:
+        (
+            application_reference,
+            application_data,
+            projection_reference,
+            _,
+        ) = _load_recruiter_application_context(
+            client,
+            transaction,
+            application_id,
+            recruiter_uid,
+        )
+        score = application_data.get("score")
+        score_breakdown = application_data.get("scoreBreakdown")
+        if (
+            isinstance(score, bool)
+            or not isinstance(score, (int, float))
+            or not math.isfinite(score)
+            or not isinstance(score_breakdown, dict)
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="A completed score and breakdown are not available",
+            )
+
+        transaction.update(application_reference, {"scoreShared": True})
+        transaction.update(
+            projection_reference,
+            {
+                "score": score,
+                "scoreBreakdown": score_breakdown,
+                "scoreShared": True,
+            },
+        )
+        return {
+            "success": True,
+            "applicationId": application_id,
+            "scoreShared": True,
+        }
+
+    return share_score(client.transaction())
+
+
+def reject_application_with_notification(
+    application_id: str,
+    recruiter_uid: str,
+) -> dict[str, Any]:
+    if not _is_safe_storage_document_id(application_id):
+        raise HTTPException(status_code=400, detail="Invalid application request")
+
+    client = get_firestore_client()
+    notification_id = hashlib.sha256(
+        f"{application_id}:rejection".encode("utf-8")
+    ).hexdigest()
+    notification_reference = (
+        client.collection("candidateNotifications").document(notification_id)
+    )
+
+    @admin_firestore.transactional
+    def reject_application(transaction: Any) -> dict[str, Any]:
+        (
+            application_reference,
+            application_data,
+            projection_reference,
+            job_data,
+        ) = _load_recruiter_application_context(
+            client,
+            transaction,
+            application_id,
+            recruiter_uid,
+        )
+        job_title = job_data.get("title")
+        if not isinstance(job_title, str) or not job_title.strip():
+            raise HTTPException(status_code=409, detail="Job title is unavailable")
+
+        candidate_id = application_data["candidateId"]
+        job_id = application_data["jobId"]
+        notification_snapshot = notification_reference.get(
+            transaction=transaction
+        )
+        if notification_snapshot.exists:
+            existing_notification = notification_snapshot.to_dict() or {}
+            if any(
+                existing_notification.get(field) != value
+                for field, value in {
+                    "candidateId": candidate_id,
+                    "applicationId": application_id,
+                    "jobId": job_id,
+                    "type": "rejection",
+                }.items()
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Existing rejection notification does not match",
+                )
+
+        transaction.update(application_reference, {"status": "Rejected"})
+        transaction.update(projection_reference, {"status": "Rejected"})
+        if not notification_snapshot.exists:
+            transaction.create(
+                notification_reference,
+                {
+                    "candidateId": candidate_id,
+                    "applicationId": application_id,
+                    "jobId": job_id,
+                    "type": "rejection",
+                    "title": job_title.strip(),
+                    "message": (
+                        f"Your application for {job_title.strip()} has been "
+                        "reviewed. Unfortunately, you have not been selected "
+                        "for this position."
+                    ),
+                    "createdAt": admin_firestore.SERVER_TIMESTAMP,
+                    "read": False,
+                },
+            )
+
+        return {
+            "success": True,
+            "applicationId": application_id,
+            "status": "Rejected",
+            "notificationId": notification_id,
+            "notificationSaved": True,
+        }
+
+    return reject_application(client.transaction())
 
 
 def create_candidate_application(
@@ -927,6 +1147,24 @@ def score_application_endpoint(
         confirm_rescore=request.confirmRescore,
     )
     return ScoreApplicationResponse(**payload)
+
+
+@app.post("/share-application-score")
+def share_application_score_endpoint(
+    request: ApplicationActionRequest,
+    authorization: str | None = Header(default=None, alias="Authorization"),
+) -> dict[str, Any]:
+    recruiter_uid = require_recruiter_uid(authorization)
+    return share_existing_application_score(request.applicationId, recruiter_uid)
+
+
+@app.post("/reject-application")
+def reject_application_endpoint(
+    request: ApplicationActionRequest,
+    authorization: str | None = Header(default=None, alias="Authorization"),
+) -> dict[str, Any]:
+    recruiter_uid = require_recruiter_uid(authorization)
+    return reject_application_with_notification(request.applicationId, recruiter_uid)
 
 
 @app.post("/application-duplicate-check")

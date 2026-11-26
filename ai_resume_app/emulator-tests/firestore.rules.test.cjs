@@ -8,11 +8,15 @@ const {
   initializeTestEnvironment,
 } = require('@firebase/rules-unit-testing');
 const {
+  collection,
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
+  query,
   setDoc,
   updateDoc,
+  where,
 } = require('firebase/firestore');
 
 const projectId = 'ai-resume-ranking-system';
@@ -83,6 +87,26 @@ async function seed() {
     });
     await setDoc(doc(db, 'candidateApplications/application-3'), {
       ...projectionData,
+    });
+    await setDoc(doc(db, 'candidateNotifications/rejection-1'), {
+      candidateId,
+      applicationId,
+      jobId: 'job-1',
+      type: 'rejection',
+      title: 'Flutter Developer',
+      message: 'Your application was not selected.',
+      createdAt: '2026-11-06T00:00:00.000Z',
+      read: false,
+    });
+    await setDoc(doc(db, 'candidateNotifications/rejection-2'), {
+      candidateId: otherCandidateId,
+      applicationId: 'application-2',
+      jobId: 'job-1',
+      type: 'rejection',
+      title: 'Flutter Developer',
+      message: 'Your application was not selected.',
+      createdAt: '2026-11-06T00:00:00.000Z',
+      read: false,
     });
   });
 }
@@ -303,6 +327,72 @@ test('shared rejection score is visible only to the intended candidate', async (
   );
   await assertFails(
     getDoc(doc(candidateDb(otherCandidateId), `candidateApplications/${applicationId}`)),
+  );
+});
+
+test('candidate can query only their own in-app notifications', async () => {
+  const ownNotifications = await getDocs(
+    query(
+      collection(candidateDb(), 'candidateNotifications'),
+      where('candidateId', '==', candidateId),
+    ),
+  );
+  assert.equal(ownNotifications.size, 1);
+  assert.equal(ownNotifications.docs[0].data().applicationId, applicationId);
+  await assertFails(
+    getDoc(
+      doc(
+        candidateDb(otherCandidateId),
+        'candidateNotifications/rejection-1',
+      ),
+    ),
+  );
+  await assertFails(
+    getDoc(
+      doc(recruiterDb(), 'candidateNotifications/rejection-1'),
+    ),
+  );
+  await assertFails(
+    getDocs(collection(candidateDb(), 'candidateNotifications')),
+  );
+});
+
+test('clients cannot create, update, or delete candidate notifications', async () => {
+  const candidate = candidateDb();
+  const recruiter = recruiterDb();
+  await assertFails(
+    setDoc(doc(candidate, 'candidateNotifications/forged'), {
+      candidateId,
+      applicationId,
+      jobId: 'job-1',
+      type: 'rejection',
+      title: 'Forged notification',
+      message: 'Forged message',
+      createdAt: '2026-11-06T00:00:00.000Z',
+      read: false,
+    }),
+  );
+  await assertFails(
+    updateDoc(doc(candidate, 'candidateNotifications/rejection-1'), {
+      read: true,
+    }),
+  );
+  await assertFails(
+    deleteDoc(doc(candidate, 'candidateNotifications/rejection-1')),
+  );
+  await assertFails(
+    setDoc(doc(recruiter, 'candidateNotifications/forged'), {
+      candidateId,
+      applicationId,
+    }),
+  );
+  await assertFails(
+    updateDoc(doc(recruiter, 'candidateNotifications/rejection-1'), {
+      read: true,
+    }),
+  );
+  await assertFails(
+    deleteDoc(doc(recruiter, 'candidateNotifications/rejection-1')),
   );
 });
 

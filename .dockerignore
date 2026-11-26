@@ -1,0 +1,45 @@
+# Environment files
+**/.env*
+**/*.env
+
+# Service-account credentials
+**/*service-account*
+**/*service_account*
+**/*serviceaccount*
+**/*firebase-adminsdk*
+**/*[Ss][Ee][Rr][Vv][Ii][Cc][Ee]*[Aa][Cc][Cc][Oo][Uu][Nn][Tt]*
+**/*[Ff][Ii][Rr][Ee][Bb][Aa][Ss][Ee]*[Aa][Dd][Mm][Ii][Nn]*
+**/*[Ff][Ii][Rr][Ee][Bb][Aa][Ss][Ee]*[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll]*
+**/*credentials*
+**/*.pem
+**/*.p12
+**/*.key
+
+# Git and virtual environments
+.git
+**/.git
+**/.venv
+**/venv
+**/env
+**/virtualenv
+**/.virtualenv
+
+# Python caches
+**/__pycache__
+**/*.py[cod]
+**/*$py.class
+
+# Build and test caches
+**/build
+**/dist
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.tox
+**/.nox
+**/.cache
+**/.coverage
+**/coverage
+**/htmlcov
+**/.dart_tool
+**/node_modules

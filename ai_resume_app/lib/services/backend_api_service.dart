@@ -190,6 +190,36 @@ class BackendApiService {
     });
   }
 
+  Future<void> shareApplicationScore({required String applicationId}) async {
+    final response = await _postApplicationRequest('/share-application-score', {
+      'applicationId': applicationId,
+    });
+    if (response['success'] != true ||
+        response['applicationId'] != applicationId ||
+        response['scoreShared'] != true) {
+      throw const BackendApplicationException(
+        detail: 'The score-sharing API returned an invalid response.',
+      );
+    }
+  }
+
+  Future<void> rejectApplication({required String applicationId}) async {
+    final response = await _postApplicationRequest('/reject-application', {
+      'applicationId': applicationId,
+    });
+    final notificationId = response['notificationId'];
+    if (response['success'] != true ||
+        response['applicationId'] != applicationId ||
+        response['status'] != 'Rejected' ||
+        response['notificationSaved'] != true ||
+        notificationId is! String ||
+        notificationId.isEmpty) {
+      throw const BackendApplicationException(
+        detail: 'The rejection API returned an invalid response.',
+      );
+    }
+  }
+
   Future<Map<String, dynamic>> _postApplicationRequest(
     String path,
     Map<String, String> payload,

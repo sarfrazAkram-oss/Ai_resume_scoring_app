@@ -21,6 +21,29 @@ class FirestoreService {
   static CollectionReference<Map<String, dynamic>> get _candidateApplications =>
       _firestore.collection('candidateApplications');
 
+  static CollectionReference<Map<String, dynamic>>
+  get _candidateNotifications =>
+      _firestore.collection('candidateNotifications');
+
+  static Stream<List<CandidateNotification>> candidateNotifications() {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      return Stream.value(const <CandidateNotification>[]);
+    }
+    return _candidateNotifications
+        .where('candidateId', isEqualTo: uid)
+        .snapshots()
+        .map((snapshot) {
+          final notifications = snapshot.docs
+              .map(CandidateNotification.fromFirestore)
+              .toList();
+          notifications.sort(
+            (left, right) => right.createdAt.compareTo(left.createdAt),
+          );
+          return notifications;
+        });
+  }
+
   static Stream<List<JobItem>> recruiterJobs() {
     final uid = _auth.currentUser?.uid;
     if (uid == null) {
@@ -277,44 +300,5 @@ class FirestoreService {
     }
 
     await updateApplicationStatus(application, 'Shortlisted');
-  }
-
-  static Future<void> rejectApplication(ApplicationRecord application) async {
-    final user = _auth.currentUser;
-    if (user == null || application.recruiterId != user.uid) {
-      throw StateError('You are not authorized to update this application.');
-    }
-
-    final batch = _firestore.batch();
-    batch.update(_applications.doc(application.id), {'status': 'Rejected'});
-    batch.update(_candidateApplications.doc(application.id), {
-      'status': 'Rejected',
-      'scoreShared': true,
-      if (application.resumeScore != null) 'score': application.resumeScore,
-    });
-    await batch.commit();
-  }
-
-  static Future<void> shareScore(ApplicationRecord application) async {
-    final user = _auth.currentUser;
-    if (user == null || application.recruiterId != user.uid) {
-      throw StateError('You are not authorized to share this score.');
-    }
-    final score = application.resumeScore;
-    if (score == null) {
-      throw StateError('A final score is not available yet.');
-    }
-    final breakdown = application.breakdown;
-    if (breakdown == null) {
-      throw StateError('A complete score breakdown is not available yet.');
-    }
-    final batch = _firestore.batch();
-    batch.update(_applications.doc(application.id), {'scoreShared': true});
-    batch.update(_candidateApplications.doc(application.id), {
-      'score': score,
-      'scoreBreakdown': breakdown.toMap(),
-      'scoreShared': true,
-    });
-    await batch.commit();
   }
 }

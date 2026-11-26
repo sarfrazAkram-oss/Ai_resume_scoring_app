@@ -100,6 +100,147 @@ void main() {
     },
   );
 
+  test('shares score using only the authenticated application ID', () async {
+    final service = BackendApiService(
+      client: MockClient((request) async {
+        expect(request.method, 'POST');
+        expect(
+          request.url.toString(),
+          'http://127.0.0.1:8000/share-application-score',
+        );
+        expect(request.headers['authorization'], 'Bearer fresh-id-token');
+        expect(jsonDecode(request.body), {'applicationId': 'application-1'});
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'applicationId': 'application-1',
+            'scoreShared': true,
+          }),
+          200,
+        );
+      }),
+      baseUrl: 'http://127.0.0.1:8000',
+      idTokenProvider: () async => 'fresh-id-token',
+    );
+
+    await service.shareApplicationScore(applicationId: 'application-1');
+  });
+
+  test('preserves backend score-sharing errors for the recruiter UI', () async {
+    final service = BackendApiService(
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({'detail': 'A completed score and breakdown are not available'}),
+          409,
+        ),
+      ),
+      baseUrl: 'http://127.0.0.1:8000',
+      idTokenProvider: () async => 'fresh-id-token',
+    );
+
+    await expectLater(
+      service.shareApplicationScore(applicationId: 'application-1'),
+      throwsA(
+        isA<BackendApplicationException>()
+            .having((error) => error.statusCode, 'statusCode', 409)
+            .having(
+              (error) => error.detail,
+              'detail',
+              'A completed score and breakdown are not available',
+            ),
+      ),
+    );
+  });
+
+  test(
+    'rejects only after the backend confirms notification persistence',
+    () async {
+      final service = BackendApiService(
+        client: MockClient((request) async {
+          expect(
+            request.url.toString(),
+            'http://127.0.0.1:8000/reject-application',
+          );
+          expect(request.headers['authorization'], 'Bearer fresh-id-token');
+          expect(jsonDecode(request.body), {'applicationId': 'application-1'});
+          return http.Response(
+            jsonEncode({
+              'success': true,
+              'applicationId': 'application-1',
+              'status': 'Rejected',
+              'notificationId': 'notification-1',
+              'notificationSaved': true,
+            }),
+            200,
+          );
+        }),
+        baseUrl: 'http://127.0.0.1:8000',
+        idTokenProvider: () async => 'fresh-id-token',
+      );
+
+      await service.rejectApplication(applicationId: 'application-1');
+    },
+  );
+
+  test(
+    'does not report rejection success without a saved notification',
+    () async {
+      final service = BackendApiService(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'success': true,
+              'applicationId': 'application-1',
+              'status': 'Rejected',
+              'notificationId': 'notification-1',
+              'notificationSaved': false,
+            }),
+            200,
+          ),
+        ),
+        baseUrl: 'http://127.0.0.1:8000',
+        idTokenProvider: () async => 'fresh-id-token',
+      );
+
+      await expectLater(
+        service.rejectApplication(applicationId: 'application-1'),
+        throwsA(
+          isA<BackendApplicationException>().having(
+            (error) => error.detail,
+            'detail',
+            'The rejection API returned an invalid response.',
+          ),
+        ),
+      );
+    },
+  );
+
+  test('preserves rejection endpoint errors for the recruiter UI', () async {
+    final service = BackendApiService(
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({'detail': 'Job ownership mismatch'}),
+          403,
+        ),
+      ),
+      baseUrl: 'http://127.0.0.1:8000',
+      idTokenProvider: () async => 'fresh-id-token',
+    );
+
+    await expectLater(
+      service.rejectApplication(applicationId: 'application-1'),
+      throwsA(
+        isA<BackendApplicationException>()
+            .having((error) => error.statusCode, 'statusCode', 403)
+            .having(
+              (error) => error.detail,
+              'detail',
+              'Job ownership mismatch',
+            ),
+      ),
+    );
+  });
+
   test('sends only the application ID with a fresh Firebase token', () async {
     var tokenRequests = 0;
     final client = MockClient((request) async {

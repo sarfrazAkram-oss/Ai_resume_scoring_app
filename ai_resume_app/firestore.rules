@@ -83,6 +83,12 @@ service cloud.firestore {
         ]);
     }
 
+    match /candidateNotifications/{notificationId} {
+        allow read: if signedIn() &&
+          resource.data.candidateId == request.auth.uid;
+        allow create, update, delete: if false;
+    }
+
     match /candidateApplicationScores/{applicationId} {
       allow read: if signedIn() &&
         get(/databases/$(database)/documents/applications/$(applicationId))

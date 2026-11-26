@@ -400,32 +400,121 @@ class MyApplicationsScreen extends StatelessWidget {
         ),
         title: const Text('My Applications'),
       ),
-      body: StreamBuilder<List<ApplicationRecord>>(
-        stream: FirestoreService.candidateApplications(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: Text('Could not load applications: ${snapshot.error}'),
-            );
-          }
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final applications = snapshot.data!;
-          if (applications.isEmpty) {
-            return const Center(child: Text('No applications submitted yet.'));
-          }
+      body: StreamBuilder<List<CandidateNotification>>(
+        stream: FirestoreService.candidateNotifications(),
+        builder: (context, notificationSnapshot) {
+          return StreamBuilder<List<ApplicationRecord>>(
+            stream: FirestoreService.candidateApplications(),
+            builder: (context, applicationSnapshot) {
+              if (!applicationSnapshot.hasData &&
+                  !applicationSnapshot.hasError) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-          return ListView.separated(
-            padding: const EdgeInsets.all(20),
-            itemCount: applications.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 14),
-            itemBuilder: (context, index) {
-              final application = applications[index];
-              return _ApplicationCard(application: application);
+              final applications =
+                  applicationSnapshot.data ?? const <ApplicationRecord>[];
+              final notifications =
+                  notificationSnapshot.data ?? const <CandidateNotification>[];
+              return ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  if (applicationSnapshot.hasError)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: Text(
+                        'Could not load applications: '
+                        '${applicationSnapshot.error}',
+                      ),
+                    ),
+                  if (notificationSnapshot.hasError)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: Text(
+                        'Could not load notifications: '
+                        '${notificationSnapshot.error}',
+                      ),
+                    ),
+                  if (notifications.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Text(
+                        'Notifications',
+                        style: GoogleFonts.poppins(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    for (final notification in notifications)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: _CandidateNotificationCard(
+                          notification: notification,
+                        ),
+                      ),
+                  ],
+                  if (!applicationSnapshot.hasError && applications.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Text('No applications submitted yet.'),
+                    )
+                  else if (!applicationSnapshot.hasError)
+                    for (final application in applications)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: _ApplicationCard(application: application),
+                      ),
+                ],
+              );
             },
           );
         },
+      ),
+    );
+  }
+}
+
+class _CandidateNotificationCard extends StatelessWidget {
+  const _CandidateNotificationCard({required this.notification});
+
+  final CandidateNotification notification;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = notification.type == 'rejection'
+        ? 'Rejection: ${notification.title}'
+        : notification.title;
+    final receivedDate = MaterialLocalizations.of(
+      context,
+    ).formatMediumDate(notification.createdAt.toLocal());
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0FDFA),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF99F6E4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(notification.message),
+          const SizedBox(height: 8),
+          Text('Received: $receivedDate'),
+          if (!notification.read)
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: Text('New notification'),
+            ),
+        ],
       ),
     );
   }

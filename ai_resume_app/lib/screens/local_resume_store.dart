@@ -333,6 +333,68 @@ class ApplicationRecord {
   }
 }
 
+class CandidateNotification {
+  const CandidateNotification({
+    required this.id,
+    required this.candidateId,
+    required this.applicationId,
+    required this.jobId,
+    required this.type,
+    required this.title,
+    required this.message,
+    required this.createdAt,
+    required this.read,
+  });
+
+  final String id;
+  final String candidateId;
+  final String applicationId;
+  final String jobId;
+  final String type;
+  final String title;
+  final String message;
+  final DateTime createdAt;
+  final bool read;
+
+  factory CandidateNotification.fromFirestore(
+    DocumentSnapshot<Map<String, dynamic>> document,
+  ) {
+    final data = document.data();
+    if (data == null) {
+      throw StateError('Candidate notification data is missing.');
+    }
+
+    String requiredString(String field) {
+      final value = data[field];
+      if (value is! String || value.trim().isEmpty) {
+        throw StateError('Candidate notification $field is missing.');
+      }
+      return value;
+    }
+
+    final createdAt = data['createdAt'];
+    if (createdAt is! Timestamp) {
+      throw StateError('Candidate notification createdAt is missing.');
+    }
+    final read = data['read'];
+    if (read is! bool) {
+      throw StateError('Candidate notification read state is missing.');
+    }
+
+    return CandidateNotification(
+      id: document.id,
+      candidateId: requiredString('candidateId'),
+      applicationId: requiredString('applicationId'),
+      jobId: requiredString('jobId'),
+      type: requiredString('type'),
+      title: requiredString('title'),
+      message: requiredString('message'),
+      createdAt: createdAt.toDate(),
+      read: read,
+    );
+  }
+}
+
 class RecruiterLocalStore {
   RecruiterLocalStore._();
 
